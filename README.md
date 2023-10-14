@@ -14,5 +14,3 @@ Some context on the project:
 - [x] Handle %d
 - [x] Handle %x
 - [x] etc.
-
-# Adding some more
