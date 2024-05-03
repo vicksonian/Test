@@ -10,6 +10,7 @@ import io
 app = Flask(__name__)
 # CORS(app)
 CORS(app, origins="http://127.0.0.1:5500")
+CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins for all routes
 DATABASE = 'servers_files.db'
 
 def get_file_icon(extension):
