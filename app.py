@@ -8,7 +8,8 @@ import base64
 import io
 
 app = Flask(__name__)
-CORS(app)
+# CORS(app)
+CORS(app, origins="http://127.0.0.1:5500")
 DATABASE = 'servers_files.db'
 
 def get_file_icon(extension):
