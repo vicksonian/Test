@@ -163,11 +163,19 @@ def upload_file():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO files (filename, content) VALUES (%s, %s)", (file.filename, file.read()))
+    
+    # Insert the file into the files table
+    cursor.execute("INSERT INTO files (filename, content) VALUES (%s, %s) RETURNING id", (file.filename, file.read()))
+    file_id = cursor.fetchone()[0]
+
+    # Insert the file information into the recently_added_files table
+    cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
+    
     conn.commit()
     conn.close()
 
     return jsonify({"message": "File uploaded successfully"}), 200
+
 
 @app.route('/delete/<int:file_id>', methods=['DELETE'])
 def delete_file(file_id):
@@ -187,6 +195,19 @@ def delete_file(file_id):
     conn.close()
 
     return jsonify({"message": "File deleted successfully"}), 200
+
+@app.route('/recently_added_files')
+def get_recently_added_files():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC LIMIT 10")
+    files = cursor.fetchall()
+    conn.close()
+
+    recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
+    return jsonify({"files": recently_added_files})
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
