@@ -158,24 +158,30 @@ def upload_file():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+    files = request.files.getlist('file')  # Retrieve list of files
+
+    if len(files) == 0:
+        return jsonify({"error": "No files selected"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Insert the file into the files table
-    cursor.execute("INSERT INTO files (filename, content) VALUES (%s, %s) RETURNING id", (file.filename, file.read()))
-    file_id = cursor.fetchone()[0]
 
-    # Insert the file information into the recently_added_files table
-    cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
-    
+    for file in files:
+        if file.filename == '':
+            continue  # Skip empty file
+
+        # Insert the file into the files table
+        cursor.execute("INSERT INTO files (filename, content) VALUES (%s, %s) RETURNING id", (file.filename, file.read()))
+        file_id = cursor.fetchone()[0]
+
+        # Insert the file information into the recently_added_files table
+        cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
+
     conn.commit()
     conn.close()
 
-    return jsonify({"message": "File uploaded successfully"}), 200
+    return jsonify({"message": "Files uploaded successfully"}), 200
+
 
 
 @app.route('/delete/<int:file_id>', methods=['DELETE'])
@@ -196,30 +202,6 @@ def delete_file(file_id):
     conn.close()
 
     return jsonify({"message": "File deleted successfully"}), 200
-
-# @app.route('/recently_added_files')
-# def get_recently_added_files():
-#     # Define the number of days to keep files in the recently added list
-#     days_limit = 1  # Change this to the desired number of days
-
-#     # Calculate the date X days ago from the current date
-#     oldest_allowed_date = datetime.now() - timedelta(days=days_limit)
-
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
-
-#     # Delete files older than the specified days limit
-#     cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_date,))
-#     conn.commit()
-
-#     # Fetch the recently added files within the specified days limit
-#     cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
-#     files = cursor.fetchall()
-#     conn.close()
-
-#     recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
-#     return jsonify({"files": recently_added_files})
-
 
 @app.route('/recently_added_files')
 def get_recently_added_files():
