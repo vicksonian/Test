@@ -33,6 +33,7 @@ def get_db_connection():
 def create_tables():
     conn = get_db_connection()
     cursor = conn.cursor()
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS files (
                         id SERIAL PRIMARY KEY,
                         filename TEXT,
@@ -65,8 +66,17 @@ def create_tables():
                         expiry_time TEXT
                     )''')
 
+    cursor.execute('''CREATE TABLE IF NOT EXISTS recently_added_files (
+                        id SERIAL PRIMARY KEY,
+                        file_id INTEGER,
+                        filename TEXT,
+                        upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (file_id) REFERENCES files(id)
+                    )''')
+
     conn.commit()
     conn.close()
+
 
 # Call create_tables() function to create tables when the application starts
 create_tables()
