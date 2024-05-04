@@ -1,43 +1,101 @@
 # server.py
 
-from flask import Flask, jsonify, send_file, request, make_response
-import sqlite3
+from flask import Flask, jsonify, send_file, request
+import psycopg2
 import os
-from flask_cors import CORS
 import base64
 import io
+from flask_cors import CORS
 
 app = Flask(__name__)
 # CORS(app)
 # CORS(app, origins="http://127.0.0.1:5500")
-CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins for all routes
-DATABASE = 'servers_files.db'
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+
+# PostgreSQL connection details
+DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
+DATABASE_PORT = 5432
+DATABASE_NAME = "servers_files"
+DATABASE_USER = "famage"
+DATABASE_PASSWORD = "mHRhoJelrAnZ3Haw1fm9RrCuo7yJ9IQ4"
+
+def get_db_connection():
+    return psycopg2.connect(
+        host=DATABASE_HOST,
+        port=DATABASE_PORT,
+        database=DATABASE_NAME,
+        user=DATABASE_USER,
+        password=DATABASE_PASSWORD
+    )
+
+# Function to create tables if they do not exist
+def create_tables():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS files (
+                        id SERIAL PRIMARY KEY,
+                        filename TEXT,
+                        is_folder INTEGER DEFAULT 0,
+                        content BYTEA,
+                        icon_data BYTEA,
+                        parent_folder_id INTEGER,
+                        FOREIGN KEY (parent_folder_id) REFERENCES files(id)
+                    )''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS icons (
+                        id SERIAL PRIMARY KEY,
+                        icon_name TEXT UNIQUE,
+                        file_extension TEXT,
+                        icon_data BYTEA NOT NULL
+                    )''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT UNIQUE,
+                        email TEXT UNIQUE,
+                        password TEXT,
+                        salt TEXT
+                    )''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS password_resets (
+                        id SERIAL PRIMARY KEY,
+                        email TEXT,
+                        reset_token TEXT,
+                        expiry_time TEXT
+                    )''')
+
+    conn.commit()
+    conn.close()
+
+# Call create_tables() function to create tables when the application starts
+create_tables()
 
 def get_file_icon(extension):
     # This function should return the icon data based on the file extension
     # You can implement it to map file extensions to corresponding icons
     # For simplicity, let's assume we have icons stored in the database as well
     # and fetch them based on the file extension
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT icon_data FROM icons WHERE file_extension = ?", (extension,))
+    cursor.execute("SELECT icon_data FROM icons WHERE file_extension = %s", (extension,))
     icon_data = cursor.fetchone()
     conn.close()
     return icon_data[0] if icon_data else None
 
 def list_folder_contents(folder_id):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename FROM files WHERE parent_folder_id = ?", (folder_id,))
+    cursor.execute("SELECT id, filename FROM files WHERE parent_folder_id = %s", (folder_id,))
     files = cursor.fetchall()
     conn.close()
     return files
 
 @app.route('/files/<int:file_id>')
 def get_file(file_id):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT filename, content FROM files WHERE id = ?", (file_id,))
+    cursor.execute("SELECT filename, content FROM files WHERE id = %s", (file_id,))
     file_data = cursor.fetchone()
     conn.close()
     if file_data:
@@ -47,13 +105,13 @@ def get_file(file_id):
             io.BytesIO(content),
             mimetype='application/octet-stream',
             as_attachment=True,
-            download_name=filename  # Use download_name instead of attachment_filename
+            download_name=filename
         )
     return jsonify({"error": "File not found"}), 404
 
 @app.route('/files')
 def list_files():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
     files = cursor.fetchall()
@@ -93,14 +151,13 @@ def upload_file():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO files (filename, content) VALUES (?, ?)", (file.filename, file.read()))
+    cursor.execute("INSERT INTO files (filename, content) VALUES (%s, %s)", (file.filename, file.read()))
     conn.commit()
     conn.close()
 
     return jsonify({"message": "File uploaded successfully"}), 200
 
-
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')#, ssl_context="adhoc")
+    app.run(debug=True, host='0.0.0.0')
