@@ -5,6 +5,7 @@ import psycopg2
 import os
 import base64
 import io
+from datetime import datetime, timedelta
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -196,17 +197,52 @@ def delete_file(file_id):
 
     return jsonify({"message": "File deleted successfully"}), 200
 
+# @app.route('/recently_added_files')
+# def get_recently_added_files():
+#     # Define the number of days to keep files in the recently added list
+#     days_limit = 1  # Change this to the desired number of days
+
+#     # Calculate the date X days ago from the current date
+#     oldest_allowed_date = datetime.now() - timedelta(days=days_limit)
+
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+
+#     # Delete files older than the specified days limit
+#     cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_date,))
+#     conn.commit()
+
+#     # Fetch the recently added files within the specified days limit
+#     cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
+#     files = cursor.fetchall()
+#     conn.close()
+
+#     recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
+#     return jsonify({"files": recently_added_files})
+
+
 @app.route('/recently_added_files')
 def get_recently_added_files():
+    # Define the number of minutes to keep files in the recently added list
+    minutes_limit = 3  # Change this to the desired number of minutes
+
+    # Calculate the time X minutes ago from the current time
+    oldest_allowed_time = datetime.now() - timedelta(minutes=minutes_limit)
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC LIMIT 10")
+
+    # Delete files older than the specified minutes limit
+    cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_time,))
+    conn.commit()
+
+    # Fetch the recently added files within the specified minutes limit
+    cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
     files = cursor.fetchall()
     conn.close()
 
     recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
     return jsonify({"files": recently_added_files})
-
 
 
 if __name__ == '__main__':
