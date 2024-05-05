@@ -4,7 +4,7 @@ import os
 import base64
 import io
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, send_file, request
+from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
@@ -334,12 +334,21 @@ def login():
         return jsonify({"error": "Invalid password"}), 401
 
     # Retrieve the user's files table name
-    files_table_name = user[5]
+    files_table = user[5]
 
-    # Now you can query the user's files from their specific table
-    # Implement this part based on your specific requirements
+    # Store user's session information
+    session['user_id'] = user[0]
+    session['username'] = user[1]
+    session['email'] = user[2]
+    session['files_table'] = files_table
 
-    return jsonify({"message": "Login successful"}), 200
+    # Redirect to index.html
+    return redirect(url_for('index'))
+
+@app.route('/index')
+def index():
+    return render_template('index.html')
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
