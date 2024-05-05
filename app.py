@@ -137,19 +137,26 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
+# Modify the /files endpoint to accept the files_table name as a parameter
 @app.route('/files')
 def list_files():
+    files_table_name = request.args.get('files_table')
+
+    if not files_table_name:
+        return jsonify({"error": "Missing files_table parameter"}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
+
+    cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
     files = cursor.fetchall()
-    
+
     folders = []
     files_list = []
     for file_id, filename, is_folder, parent_folder_id in files:
         icon_data = get_file_icon(os.path.splitext(filename)[1])
         icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
-        
+
         if is_folder:
             folder_contents = list_folder_contents(file_id)
             folders.append({
@@ -166,7 +173,7 @@ def list_files():
                 "is_folder": False,
                 "icon_data": icon_data_base64
             })
-    
+
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
 
@@ -353,7 +360,7 @@ def register():
 
 
 
-# Update the login route to return the entire response object
+# Update the login endpoint to return the files_table name along with the response
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -381,6 +388,9 @@ def login():
         return jsonify({"error": "Invalid password"}), 401
 
     conn.close()
+
+    # Store files_table_name in the session
+    # session['files_table'] = files_table_name
 
     # Return the files_table_name along with the response
     response = {
