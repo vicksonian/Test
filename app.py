@@ -18,8 +18,8 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-
 bcrypt = Bcrypt(app)
+
 DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
 DATABASE_PORT = 5432
 DATABASE_NAME = "servers_files"
@@ -138,9 +138,14 @@ def get_file(file_id):
 
 @app.route('/files')
 def list_files():
+    if 'user_id' not in session:
+        return jsonify({"error": "User not logged in"}), 401
+
+    files_table_name = session.get('files_table')
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
+    cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
     files = cursor.fetchall()
     
     folders = []
@@ -335,14 +340,23 @@ def login():
         conn.close()
         return jsonify({"error": "Invalid password"}), 401
 
+    # Store user information in the session
     session['user_id'] = user_id
     session['username'] = username
     session['email'] = email
     session['files_table'] = files_table_name
 
+    # Print session information for debugging
+    print("Session information stored successfully:")
+    print("User ID:", session.get('user_id'))
+    print("Username:", session.get('username'))
+    print("Email:", session.get('email'))
+    print("Files Table:", session.get('files_table'))
+
     conn.close()
 
     return jsonify({"message": "Login successful"}), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
