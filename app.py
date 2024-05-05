@@ -3,7 +3,6 @@ import psycopg2
 import os
 import base64
 import io
-import jwt
 import secrets
 import string
 from flask_bcrypt import Bcrypt
@@ -372,17 +371,11 @@ def get_files_table_name(user_id):
     return files_table_name
 
 
-# Modify the list_files endpoint to use the files_table_name
 @app.route('/files')
 def list_files():
-
-    user_id = get_logged_in_user_id()
-
-    files_table_name = get_files_table_name(user_id)
-
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
+    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
     files = cursor.fetchall()
     
     folders = []
@@ -411,22 +404,6 @@ def list_files():
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
 
-
-def get_logged_in_user_id():
-    auth_header = request.headers.get('Authorization')
-    if auth_header:
-        token = auth_header.split()[1]
-        try:
-            payload = jwt.decode(token, 'your_secret_key', algorithms=['HS256'])
-            return payload['user_id']
-        except jwt.ExpiredSignatureError:
-    
-            return None
-        except jwt.InvalidTokenError:
-
-            return None
-    else:
-        return None
 
 
 
