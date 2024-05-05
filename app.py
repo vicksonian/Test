@@ -177,19 +177,26 @@ def get_file(file_id):
 #     conn.close()
 #     return jsonify({"folders": folders, "files": files_list})
 
-from flask import session
-
 @app.route('/files')
 def list_files():
     # Get the logged-in user's user_id
     user_id = session.get('user_id')
     
+    if not user_id:
+        return jsonify({"error": "User not authenticated"}), 401
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
     # Retrieve the files_table_name associated with the user_id
     cursor.execute("SELECT files_table FROM users WHERE user_id = %s", (user_id,))
-    files_table_name = cursor.fetchone()[0]
+    result = cursor.fetchone()
+
+    if not result:
+        conn.close()
+        return jsonify({"error": "User's files table not found"}), 404
+
+    files_table_name = result[0]
 
     # Fetch files from the user's table
     cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
