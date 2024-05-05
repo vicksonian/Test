@@ -350,7 +350,7 @@ def login():
 
     return jsonify({"message": "Login successful"}), 200
 
-@app.route('/session')
+@app.route('/all_sessions')
 def display_session():
     # Check if user_id is in session
     user_id = session.get('user_id')
