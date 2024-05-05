@@ -137,69 +137,11 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
-# Modify the /files endpoint to accept the files_table name as a parameter
-# @app.route('/files')
-# def list_files():
-#     files_table_name = request.args.get('files_table')
-
-#     if not files_table_name:
-#         return jsonify({"error": "Missing files_table parameter"}), 400
-
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
-
-#     cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
-#     files = cursor.fetchall()
-
-#     folders = []
-#     files_list = []
-#     for file_id, filename, is_folder, parent_folder_id in files:
-#         icon_data = get_file_icon(os.path.splitext(filename)[1])
-#         icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
-
-#         if is_folder:
-#             folder_contents = list_folder_contents(file_id)
-#             folders.append({
-#                 "id": file_id,
-#                 "filename": filename,
-#                 "is_folder": True,
-#                 "icon_data": icon_data_base64,
-#                 "contents": [{"id": file[0], "filename": file[1]} for file in folder_contents]
-#             })
-#         else:
-#             files_list.append({
-#                 "id": file_id,
-#                 "filename": filename,
-#                 "is_folder": False,
-#                 "icon_data": icon_data_base64
-#             })
-
-#     conn.close()
-#     return jsonify({"folders": folders, "files": files_list})
-
 @app.route('/files')
 def list_files():
-    # Get the logged-in user's user_id
-    user_id = session.get('user_id')
-    
-    if not user_id:
-        return jsonify({"error": "User not authenticated"}), 401
-
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    # Retrieve the files_table_name associated with the user_id
-    cursor.execute("SELECT files_table FROM users WHERE user_id = %s", (user_id,))
-    result = cursor.fetchone()
-
-    if not result:
-        conn.close()
-        return jsonify({"error": "User's files table not found"}), 404
-
-    files_table_name = result[0]
-
-    # Fetch files from the user's table
-    cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
+    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
     files = cursor.fetchall()
     
     folders = []
@@ -227,21 +169,6 @@ def list_files():
     
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
-
-def get_user_files_table(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT files_table FROM users WHERE user_id = %s", (user_id,))
-    result = cursor.fetchone()
-
-    conn.close()
-
-    if result:
-        return result[0]  # Return the files_table name
-    else:
-        return None  # User not found or no files_table associated with the user_id
-
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -426,7 +353,7 @@ def register():
 
 
 
-# Update the login endpoint to return the files_table name along with the response
+# Update the login route to return the entire response object
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -454,12 +381,6 @@ def login():
         return jsonify({"error": "Invalid password"}), 401
 
     conn.close()
-
-    # user_id = get_user_id_from_database()
-    files_table_name = get_user_files_table(user_id)
-
-    # Store files_table_name in the session
-    # session['files_table'] = files_table_name
 
     # Return the files_table_name along with the response
     response = {
