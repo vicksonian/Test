@@ -76,11 +76,13 @@ def create_tables():
                         FOREIGN KEY (file_id) REFERENCES files(id)
                     )''')
 
+    cursor.execute('''ALTER TABLE users 
+                    ADD COLUMN IF NOT EXISTS files_table TEXT''')
+
     conn.commit()
     conn.close()
 
 
-# Call create_tables() function to create tables when the application starts
 create_tables()
 
 def get_file_icon(extension):
