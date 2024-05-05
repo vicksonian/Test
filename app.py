@@ -8,7 +8,7 @@ import string
 from functools import wraps
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template
+from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template, g
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
@@ -149,15 +149,16 @@ def login_required(f):
 @app.route('/files')
 @login_required
 def list_files():
-    if 'user_id' not in session:
-        return jsonify({"error": "User not logged in"}), 401
-
+    user_id = session.get('user_id')
     files_table_name = session.get('files_table')
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
     files = cursor.fetchall()
+
+    if not files:
+        return jsonify({"error": "No files found"}), 404
     
     folders = []
     files_list = []
@@ -184,6 +185,7 @@ def list_files():
     
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -350,6 +352,8 @@ def login():
     if not verify_password(password + salt, hashed_password):
         conn.close()
         return jsonify({"error": "Invalid password"}), 401
+    
+
 
     # Store user information in the session
     session['user_id'] = user_id
