@@ -228,6 +228,19 @@ def list_files():
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
 
+def get_user_files_table(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT files_table FROM users WHERE user_id = %s", (user_id,))
+    result = cursor.fetchone()
+
+    conn.close()
+
+    if result:
+        return result[0]  # Return the files_table name
+    else:
+        return None  # User not found or no files_table associated with the user_id
 
 
 @app.route('/upload', methods=['POST'])
@@ -441,6 +454,9 @@ def login():
         return jsonify({"error": "Invalid password"}), 401
 
     conn.close()
+
+    # user_id = get_user_id_from_database()
+    files_table_name = get_user_files_table(user_id)
 
     # Store files_table_name in the session
     # session['files_table'] = files_table_name
