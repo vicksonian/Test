@@ -289,7 +289,7 @@ def register():
     # Insert user into the users table
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (username, email, password, salt, files_table_name) VALUES (%s, %s, %s, %s, %s)",
+    cursor.execute("INSERT INTO users (username, email, password, salt, files_table) VALUES (%s, %s, %s, %s, %s)",
                    (username, email, hashed_password, salt, table_name))
     conn.commit()
 
@@ -307,6 +307,7 @@ def register():
     conn.close()
 
     return jsonify({"message": "User registered successfully"}), 200
+
 
 @app.route('/login', methods=['POST'])
 def login():
