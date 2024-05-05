@@ -138,25 +138,58 @@ def get_file(file_id):
     return jsonify({"error": "File not found"}), 404
 
 # Modify the /files endpoint to accept the files_table name as a parameter
+# @app.route('/files')
+# def list_files():
+#     files_table_name = request.args.get('files_table')
+
+#     if not files_table_name:
+#         return jsonify({"error": "Missing files_table parameter"}), 400
+
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+
+#     cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
+#     files = cursor.fetchall()
+
+#     folders = []
+#     files_list = []
+#     for file_id, filename, is_folder, parent_folder_id in files:
+#         icon_data = get_file_icon(os.path.splitext(filename)[1])
+#         icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
+
+#         if is_folder:
+#             folder_contents = list_folder_contents(file_id)
+#             folders.append({
+#                 "id": file_id,
+#                 "filename": filename,
+#                 "is_folder": True,
+#                 "icon_data": icon_data_base64,
+#                 "contents": [{"id": file[0], "filename": file[1]} for file in folder_contents]
+#             })
+#         else:
+#             files_list.append({
+#                 "id": file_id,
+#                 "filename": filename,
+#                 "is_folder": False,
+#                 "icon_data": icon_data_base64
+#             })
+
+#     conn.close()
+#     return jsonify({"folders": folders, "files": files_list})
+
 @app.route('/files')
 def list_files():
-    files_table_name = request.args.get('files_table')
-
-    if not files_table_name:
-        return jsonify({"error": "Missing files_table parameter"}), 400
-
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
+    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
     files = cursor.fetchall()
-
+    
     folders = []
     files_list = []
     for file_id, filename, is_folder, parent_folder_id in files:
         icon_data = get_file_icon(os.path.splitext(filename)[1])
         icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
-
+        
         if is_folder:
             folder_contents = list_folder_contents(file_id)
             folders.append({
@@ -173,9 +206,10 @@ def list_files():
                 "is_folder": False,
                 "icon_data": icon_data_base64
             })
-
+    
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
