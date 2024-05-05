@@ -130,7 +130,7 @@ def get_file(file_id):
 
 @app.route('/files')
 def list_files():
-    if 'user_id' not in session:
+    if 'username' not in session:
         return jsonify({"error": "User not logged in"}), 401
 
     files_table = session.get('files_table')
@@ -172,7 +172,7 @@ def list_files():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'user_id' not in session:
+    if 'username' not in session:
         return jsonify({"error": "User not logged in"}), 401
 
     files_table = session.get('files_table')
@@ -204,7 +204,7 @@ def upload_file():
 
 @app.route('/delete/<int:file_id>', methods=['DELETE'])
 def delete_file(file_id):
-    if 'user_id' not in session:
+    if 'username' not in session:
         return jsonify({"error": "User not logged in"}), 401
 
     files_table = session.get('files_table')
