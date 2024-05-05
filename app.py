@@ -317,8 +317,14 @@ def register():
 def login():
     # Retrieve username or email and password from request
     data = request.json
+    if data is None:
+        return jsonify({"error": "Request data is missing or not in JSON format"}), 400
+    
     username_or_email = data.get('username_or_email')
     password = data.get('password')
+
+    if not username_or_email or not password:
+        return jsonify({"error": "Username/email or password is missing"}), 400
 
     # Check if the username or email exists
     if '@' in username_or_email:
@@ -348,6 +354,8 @@ def login():
 @app.route('/index')
 def index():
     return render_template('index.html')
+
+
 
 
 if __name__ == '__main__':
