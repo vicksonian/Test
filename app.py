@@ -341,16 +341,15 @@ def login():
         conn.close()
         return jsonify({"error": "Invalid password"}), 401
 
-    # Set user information in the session
-    session['user_id'] = user_id
-    session['username'] = username
-    session['email'] = email
-    session['files_table'] = files_table_name
-
     conn.close()
 
-    # Return a response indicating successful login
-    return jsonify({"message": "Login successful"}), 200
+    # Return the files_table_name along with the response
+    response = {
+        "message": "Login successful",
+        "files_table": files_table_name
+    }
+    return jsonify(response), 200
+
 
 
 
