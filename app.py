@@ -56,8 +56,10 @@ def create_tables():
                         username TEXT UNIQUE,
                         email TEXT UNIQUE,
                         password TEXT,
-                        salt TEXT
+                        salt TEXT,
+                        files_table TEXT
                     )''')
+
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS password_resets (
                         id SERIAL PRIMARY KEY,
