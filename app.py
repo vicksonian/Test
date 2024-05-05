@@ -1,16 +1,15 @@
 # server.py
-
-from flask import Flask, jsonify, send_file, request
 import psycopg2
 import os
 import base64
 import io
 from datetime import datetime, timedelta
+from flask import Flask, jsonify, send_file, request
+import uuid
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
 
 app = Flask(__name__)
-# CORS(app)
-# CORS(app, origins="http://127.0.0.1:5500")
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
@@ -226,6 +225,118 @@ def get_recently_added_files():
     recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
     return jsonify({"files": recently_added_files})
 
+
+
+
+def generate_salt():
+    return base64.b64encode(os.urandom(20)).decode('utf-8')
+
+def hash_password(password, salt):
+    return generate_password_hash(password + salt)
+
+def username_exists(username):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM users WHERE username = %s)", (username,))
+    result = cursor.fetchone()[0]
+    conn.close()
+    return result
+
+def email_exists(email):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM users WHERE email = %s)", (email,))
+    result = cursor.fetchone()[0]
+    conn.close()
+    return result
+
+def get_user_by_username(username):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
+def get_user_by_email(email):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
+@app.route('/register', methods=['POST'])
+def register():
+    # Retrieve username, email, password from request
+    data = request.json
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    # Check if username or email already exists
+    if username_exists(username):
+        return jsonify({"error": "Username already exists"}), 400
+    if email_exists(email):
+        return jsonify({"error": "Email already exists"}), 400
+
+    # Generate a unique table name for the user's files
+    table_name = f"files_{uuid.uuid4().hex}"
+
+    # Generate a salt and hash the password
+    salt = generate_salt()
+    hashed_password = hash_password(password, salt)
+
+    # Insert user into the users table
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users (username, email, password_hash, salt, files_table_name) VALUES (%s, %s, %s, %s, %s)",
+                   (username, email, hashed_password, salt, table_name))
+    conn.commit()
+
+    # Create a new table for the user's files
+    cursor.execute(f'''CREATE TABLE IF NOT EXISTS {table_name} (
+                        id SERIAL PRIMARY KEY,
+                        filename TEXT,
+                        is_folder INTEGER DEFAULT 0,
+                        content BYTEA,
+                        icon_data BYTEA,
+                        parent_folder_id INTEGER,
+                        FOREIGN KEY (parent_folder_id) REFERENCES {table_name}(id)
+                    )''')
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "User registered successfully"}), 200
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    # Retrieve username or email and password from request
+    data = request.json
+    username_or_email = data.get('username_or_email')
+    password = data.get('password')
+
+    # Check if the username or email exists
+    if '@' in username_or_email:
+        user = get_user_by_email(username_or_email)
+    else:
+        user = get_user_by_username(username_or_email)
+
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    # Verify the password
+    if not check_password_hash(user[3], password + user[4]):
+        return jsonify({"error": "Invalid password"}), 401
+
+    # Retrieve the user's files table name
+    files_table_name = user[5]
+
+    # Now you can query the user's files from their specific table
+    # Implement this part based on your specific requirements
+
+    return jsonify({"message": "Login successful"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
