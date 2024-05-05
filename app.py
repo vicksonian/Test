@@ -177,11 +177,22 @@ def get_file(file_id):
 #     conn.close()
 #     return jsonify({"folders": folders, "files": files_list})
 
+from flask import session
+
 @app.route('/files')
 def list_files():
+    # Get the logged-in user's user_id
+    user_id = session.get('user_id')
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
+
+    # Retrieve the files_table_name associated with the user_id
+    cursor.execute("SELECT files_table FROM users WHERE user_id = %s", (user_id,))
+    files_table_name = cursor.fetchone()[0]
+
+    # Fetch files from the user's table
+    cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
     files = cursor.fetchall()
     
     folders = []
@@ -209,6 +220,7 @@ def list_files():
     
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
+
 
 
 @app.route('/upload', methods=['POST'])
