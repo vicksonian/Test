@@ -270,7 +270,7 @@ def register():
         return jsonify({"error": "Email already exists"}), 400
 
     # Generate a unique table name for the user's files
-    files_table_name = f"UDB_x2%fb/64_{uuid.uuid4().hex}"
+    files_table_name = f"UDB_x2fb_64_{uuid.uuid4().hex}"
 
     cursor.execute("INSERT INTO users (username, email, password, salt, files_table) VALUES (%s, %s, %s, %s, %s)",
                    (username, email, hashed_password, salt, files_table_name))
