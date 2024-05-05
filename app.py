@@ -3,6 +3,8 @@ import psycopg2
 import os
 import base64
 import io
+import secrets
+import string
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template
@@ -56,7 +58,7 @@ def create_tables():
                     )''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-                        id SERIAL PRIMARY KEY,
+                        user_id SERIAL PRIMARY KEY,
                         username TEXT UNIQUE,
                         email TEXT UNIQUE,
                         password TEXT,
@@ -88,6 +90,13 @@ def create_tables():
 
 
 create_tables()
+
+def generate_random_id(length=8):
+    characters = string.ascii_letters + string.digits
+    random_id = ''.join(secrets.choice(characters) for _ in range(length))
+    return random_id
+
+random_id = generate_random_id()
 
 def get_file_icon(extension):
     # This function should return the icon data based on the file extension
@@ -275,8 +284,11 @@ def register():
     # Generate a unique table name for the user's files
     files_table_name = f"UDB_x2fb_64_{uuid.uuid4().hex}"
 
-    cursor.execute("INSERT INTO users (username, email, password, salt, files_table) VALUES (%s, %s, %s, %s, %s)",
-                   (username, email, hashed_password, salt, files_table_name))
+    # Generate a random ID for the user
+    user_id = generate_random_id()
+
+    cursor.execute("INSERT INTO users (id, username, email, password, salt, files_table) VALUES (%s, %s, %s, %s, %s, %s)",
+                   (user_id, username, email, hashed_password, salt, files_table_name))
     conn.commit()
 
     # Create a new table for the user's files
@@ -294,6 +306,7 @@ def register():
     conn.close()
 
     return jsonify({"message": "User registered successfully"}), 200
+
 
 
 @app.route('/login', methods=['POST'])
