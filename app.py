@@ -11,7 +11,16 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# @app.route('/index')
+# def index():
+#     return render_template('index.html')
+
+
 
 bcrypt = Bcrypt(app)
 # PostgreSQL connection details
