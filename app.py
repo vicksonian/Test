@@ -300,6 +300,9 @@ def register():
     return jsonify({"message": "User registered successfully"}), 200
 
 
+
+
+#login logic handling here
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -326,6 +329,7 @@ def login():
         conn.close()
         return jsonify({"error": "Invalid password"}), 401
 
+    # Set session variables
     session['user_id'] = user_id
     session['username'] = username
     session['email'] = email
@@ -333,7 +337,11 @@ def login():
 
     conn.close()
 
+    # Print session variables for debugging
+    print("Session variables:", session)
+
     return jsonify({"message": "Login successful"}), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
