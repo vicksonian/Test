@@ -8,11 +8,16 @@ from datetime import datetime, timedelta
 from flask import Flask, jsonify, send_file, request, session
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_cors import CORS
+
+
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 
 bcrypt = Bcrypt(app)
 DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
