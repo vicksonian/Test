@@ -13,9 +13,12 @@ from flask_cors import CORS
 
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
+
+app.secret_key = "BDrt534StLibQ4St"
+
+# app.secret_key = os.urandom(24)
+# app.config['SESSION_TYPE'] = 'filesystem'
+# app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
