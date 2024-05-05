@@ -137,39 +137,6 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
-@app.route('/files')
-def list_files():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
-    files = cursor.fetchall()
-    
-    folders = []
-    files_list = []
-    for file_id, filename, is_folder, parent_folder_id in files:
-        icon_data = get_file_icon(os.path.splitext(filename)[1])
-        icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
-        
-        if is_folder:
-            folder_contents = list_folder_contents(file_id)
-            folders.append({
-                "id": file_id,
-                "filename": filename,
-                "is_folder": True,
-                "icon_data": icon_data_base64,
-                "contents": [{"id": file[0], "filename": file[1]} for file in folder_contents]
-            })
-        else:
-            files_list.append({
-                "id": file_id,
-                "filename": filename,
-                "is_folder": False,
-                "icon_data": icon_data_base64
-            })
-    
-    conn.close()
-    return jsonify({"folders": folders, "files": files_list})
-
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -354,6 +321,7 @@ def register():
 
 
 # Update the login route to return the entire response object
+# Modify the login route to return the entire response object
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -380,6 +348,9 @@ def login():
         conn.close()
         return jsonify({"error": "Invalid password"}), 401
 
+    # Retrieve the files_table_name
+    files_table_name = get_files_table_name(user_id)
+
     conn.close()
 
     # Return the files_table_name along with the response
@@ -388,6 +359,58 @@ def login():
         "files_table": files_table_name
     }
     return jsonify(response), 200
+
+
+# Add a function to retrieve the user's files_table_name
+def get_files_table_name(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT files_table FROM users WHERE user_id = %s", (user_id,))
+    files_table_name = cursor.fetchone()[0]
+    conn.close()
+    return files_table_name
+
+
+# Modify the list_files endpoint to use the files_table_name
+@app.route('/files')
+def list_files():
+    # Get the files_table_name from the request
+    files_table_name = request.args.get('files_table_name')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
+    files = cursor.fetchall()
+    
+    folders = []
+    files_list = []
+    for file_id, filename, is_folder, parent_folder_id in files:
+        icon_data = get_file_icon(os.path.splitext(filename)[1])
+        icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
+        
+        if is_folder:
+            folder_contents = list_folder_contents(file_id)
+            folders.append({
+                "id": file_id,
+                "filename": filename,
+                "is_folder": True,
+                "icon_data": icon_data_base64,
+                "contents": [{"id": file[0], "filename": file[1]} for file in folder_contents]
+            })
+        else:
+            files_list.append({
+                "id": file_id,
+                "filename": filename,
+                "is_folder": False,
+                "icon_data": icon_data_base64
+            })
+    
+    conn.close()
+    return jsonify({"folders": folders, "files": files_list})
+
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
