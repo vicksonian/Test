@@ -130,8 +130,8 @@ def get_file(file_id):
 
 @app.route('/files')
 def list_files():
-    if 'username' not in session:
-        return jsonify({"error": "User not logged in"}), 401
+    # if 'username' not in session:
+    #     return jsonify({"error": "User not logged in"}), 401
 
     files_table = session.get('files_table')
 
@@ -334,7 +334,7 @@ def login():
         conn.close()
         return jsonify({"error": "User not found"}), 404
 
-    user_id, username, email, hashed_password, salt, files_table_name = user
+    user_id, username, email, hashed_password, salt, files_table = user
 
     if not verify_password(password + salt, hashed_password):
         conn.close()
@@ -344,7 +344,7 @@ def login():
     session['user_id'] = user_id
     session['username'] = username
     session['email'] = email
-    session['files_table'] = files_table_name
+    session['files_table'] = files_table
 
     conn.close()
 
