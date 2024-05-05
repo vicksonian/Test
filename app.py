@@ -5,17 +5,14 @@ import base64
 import io
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template
+from flask import Flask, jsonify, send_file, request, session
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_cors import CORS
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
 
 bcrypt = Bcrypt(app)
 DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
@@ -64,7 +61,6 @@ def create_tables():
                         files_table TEXT
                     )''')
 
-
     cursor.execute('''CREATE TABLE IF NOT EXISTS password_resets (
                         id SERIAL PRIMARY KEY,
                         email TEXT,
@@ -86,14 +82,9 @@ def create_tables():
     conn.commit()
     conn.close()
 
-
 create_tables()
 
 def get_file_icon(extension):
-    # This function should return the icon data based on the file extension
-    # You can implement it to map file extensions to corresponding icons
-    # For simplicity, let's assume we have icons stored in the database as well
-    # and fetch them based on the file extension
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT icon_data FROM icons WHERE file_extension = %s", (extension,))
@@ -101,10 +92,10 @@ def get_file_icon(extension):
     conn.close()
     return icon_data[0] if icon_data else None
 
-def list_folder_contents(folder_id):
+def list_folder_contents(folder_id, files_table):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename FROM files WHERE parent_folder_id = %s", (folder_id,))
+    cursor.execute("SELECT id, filename FROM {} WHERE parent_folder_id = %s".format(files_table), (folder_id,))
     files = cursor.fetchall()
     conn.close()
     return files
@@ -118,7 +109,6 @@ def get_file(file_id):
     conn.close()
     if file_data:
         filename, content = file_data
-        # Return the file as an attachment
         return send_file(
             io.BytesIO(content),
             mimetype='application/octet-stream',
@@ -129,9 +119,14 @@ def get_file(file_id):
 
 @app.route('/files')
 def list_files():
+    if 'user_id' not in session:
+        return jsonify({"error": "User not logged in"}), 401
+
+    files_table = session.get('files_table')
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM files")
+    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM {} ORDER BY filename".format(files_table))
     files = cursor.fetchall()
     
     folders = []
@@ -141,7 +136,7 @@ def list_files():
         icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
         
         if is_folder:
-            folder_contents = list_folder_contents(file_id)
+            folder_contents = list_folder_contents(file_id, files_table)
             folders.append({
                 "id": file_id,
                 "filename": filename,
@@ -162,10 +157,15 @@ def list_files():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    if 'user_id' not in session:
+        return jsonify({"error": "User not logged in"}), 401
+
+    files_table = session.get('files_table')
+
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
 
-    files = request.files.getlist('file')  # Retrieve list of files
+    files = request.files.getlist('file')
 
     if len(files) == 0:
         return jsonify({"error": "No files selected"}), 400
@@ -175,13 +175,11 @@ def upload_file():
 
     for file in files:
         if file.filename == '':
-            continue  # Skip empty file
+            continue
 
-        # Insert the file into the files table
-        cursor.execute("INSERT INTO files (filename, content) VALUES (%s, %s) RETURNING id", (file.filename, file.read()))
+        cursor.execute("INSERT INTO {} (filename, content) VALUES (%s, %s) RETURNING id".format(files_table), (file.filename, file.read()))
         file_id = cursor.fetchone()[0]
 
-        # Insert the file information into the recently_added_files table
         cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
 
     conn.commit()
@@ -189,22 +187,23 @@ def upload_file():
 
     return jsonify({"message": "Files uploaded successfully"}), 200
 
-
-
 @app.route('/delete/<int:file_id>', methods=['DELETE'])
 def delete_file(file_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "User not logged in"}), 401
+
+    files_table = session.get('files_table')
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Check if the file exists
-    cursor.execute("SELECT filename FROM files WHERE id = %s", (file_id,))
+    cursor.execute("SELECT filename FROM {} WHERE id = %s".format(files_table), (file_id,))
     file_data = cursor.fetchone()
     if not file_data:
         conn.close()
         return jsonify({"error": "File not found"}), 404
 
-    # Delete the file from the database
-    cursor.execute("DELETE FROM files WHERE id = %s", (file_id,))
+    cursor.execute("DELETE FROM {} WHERE id = %s".format(files_table), (file_id,))
     conn.commit()
     conn.close()
 
@@ -330,10 +329,6 @@ def login():
     conn.close()
 
     return jsonify({"message": "Login successful"}), 200
-
-
-
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
