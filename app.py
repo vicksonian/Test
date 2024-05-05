@@ -58,13 +58,14 @@ def create_tables():
                     )''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-                        user_id SERIAL PRIMARY KEY,
+                        user_id TEXT PRIMARY KEY,
                         username TEXT UNIQUE,
                         email TEXT UNIQUE,
                         password TEXT,
                         salt TEXT,
                         files_table TEXT
                     )''')
+
 
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS password_resets (
@@ -292,7 +293,7 @@ def register():
     # Generate a random ID for the user
     user_id = generate_random_id()
 
-    cursor.execute("INSERT INTO users (id, username, email, password, salt, files_table) VALUES (%s, %s, %s, %s, %s, %s)",
+    cursor.execute("INSERT INTO users (user_id, username, email, password, salt, files_table) VALUES (%s, %s, %s, %s, %s, %s)",
                    (user_id, username, email, hashed_password, salt, files_table_name))
     conn.commit()
 
