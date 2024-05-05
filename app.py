@@ -269,10 +269,9 @@ def get_user_by_email(email):
 @app.route('/register', methods=['POST'])
 def register():
     # Retrieve username, email, password from request
-    data = request.json
-    username = data.get('username')
-    email = data.get('email')
-    password = data.get('password')
+    username = request.json.get('username')
+    email = request.json.get('email')
+    password = request.json.get('password')
 
     # Check if username or email already exists
     if username_exists(username):
@@ -290,7 +289,7 @@ def register():
     # Insert user into the users table
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (username, email, password_hash, salt, files_table_name) VALUES (%s, %s, %s, %s, %s)",
+    cursor.execute("INSERT INTO users (username, email, password, salt, files_table_name) VALUES (%s, %s, %s, %s, %s)",
                    (username, email, hashed_password, salt, table_name))
     conn.commit()
 
@@ -308,7 +307,6 @@ def register():
     conn.close()
 
     return jsonify({"message": "User registered successfully"}), 200
-
 
 @app.route('/login', methods=['POST'])
 def login():
