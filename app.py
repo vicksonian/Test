@@ -16,14 +16,8 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# @app.route('/index')
-# def index():
-#     return render_template('index.html')
-
-
 
 bcrypt = Bcrypt(app)
-# PostgreSQL connection details
 DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
 DATABASE_PORT = 5432
 DATABASE_NAME = "servers_files"
