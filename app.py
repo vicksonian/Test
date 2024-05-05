@@ -315,6 +315,7 @@ def register():
 
 
 
+# Update the login route to return session information
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -347,16 +348,19 @@ def login():
     session['email'] = email
     session['files_table'] = files_table_name
 
-    # Print session information for debugging
-    print("Session information stored successfully:")
-    print("User ID:", session.get('user_id'))
-    print("Username:", session.get('username'))
-    print("Email:", session.get('email'))
-    print("Files Table:", session.get('files_table'))
-
     conn.close()
 
-    return jsonify({"message": "Login successful"}), 200
+    # Return session information as part of the response
+    return jsonify({
+        "message": "Login successful",
+        "session": {
+            "user_id": user_id,
+            "username": username,
+            "email": email,
+            "files_table": files_table_name
+        }
+    }), 200
+
 
 
 if __name__ == '__main__':
