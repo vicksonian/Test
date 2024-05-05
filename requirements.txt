@@ -5,3 +5,4 @@ Werkzeug == 3.0.2
 cryptography == 3.4.8
 psycopg2 == 2.9.9
 psycopg2-binary == 2.9.9
+Flask-Bcrypt == 1.0.1

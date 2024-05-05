@@ -3,6 +3,7 @@ import psycopg2
 import os
 import base64
 import io
+from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template
 import uuid
@@ -12,7 +13,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-
+bcrypt = Bcrypt(app)
 # PostgreSQL connection details
 DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
 DATABASE_PORT = 5432
@@ -231,83 +232,62 @@ def get_recently_added_files():
 
 
 
-
 def generate_salt():
     return base64.b64encode(os.urandom(20)).decode('utf-8')
 
+
 def hash_password(password, salt):
-    return generate_password_hash(password + salt)
+    return bcrypt.generate_password_hash(password + salt).decode('utf-8')
 
-def username_exists(username):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT EXISTS(SELECT 1 FROM users WHERE username = %s)", (username,))
-    result = cursor.fetchone()[0]
-    conn.close()
-    return result
 
-def email_exists(email):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT EXISTS(SELECT 1 FROM users WHERE email = %s)", (email,))
-    result = cursor.fetchone()[0]
-    conn.close()
-    return result
+def verify_password(password, hashed_password):
+    return bcrypt.check_password_hash(hashed_password, password)
 
-def get_user_by_username(username):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
-
-def get_user_by_email(email):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
 
 @app.route('/register', methods=['POST'])
 def register():
-    # Retrieve username, email, password from request
-    username = request.json.get('username')
-    email = request.json.get('email')
-    password = request.json.get('password')
+    data = request.json
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
 
-    # Check if username or email already exists
-    if username_exists(username):
-        return jsonify({"error": "Username already exists"}), 400
-    if email_exists(email):
-        return jsonify({"error": "Email already exists"}), 400
+    if not (username and email and password):
+        return jsonify({"error": "Missing username, email, or password"}), 400
 
-    # Generate a unique table name for the user's files
-    table_name = f"files_{uuid.uuid4().hex}"
-
-    # Generate a salt and hash the password
     salt = generate_salt()
     hashed_password = hash_password(password, salt)
 
-    # Insert user into the users table
     conn = get_db_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users WHERE username = %s", (username,))
+    if cursor.fetchone()[0] > 0:
+        conn.close()
+        return jsonify({"error": "Username already exists"}), 400
+
+    cursor.execute("SELECT COUNT(*) FROM users WHERE email = %s", (email,))
+    if cursor.fetchone()[0] > 0:
+        conn.close()
+        return jsonify({"error": "Email already exists"}), 400
+
+    # Generate a unique table name for the user's files
+    files_table_name = f"UDB_x2%fb/64_{uuid.uuid4().hex}"
+
     cursor.execute("INSERT INTO users (username, email, password, salt, files_table) VALUES (%s, %s, %s, %s, %s)",
-                   (username, email, hashed_password, salt, table_name))
+                   (username, email, hashed_password, salt, files_table_name))
     conn.commit()
 
     # Create a new table for the user's files
-    cursor.execute(f'''CREATE TABLE IF NOT EXISTS {table_name} (
+    cursor.execute(f'''CREATE TABLE IF NOT EXISTS {files_table_name} (
                         id SERIAL PRIMARY KEY,
                         filename TEXT,
                         is_folder INTEGER DEFAULT 0,
                         content BYTEA,
                         icon_data BYTEA,
                         parent_folder_id INTEGER,
-                        FOREIGN KEY (parent_folder_id) REFERENCES {table_name}(id)
+                        FOREIGN KEY (parent_folder_id) REFERENCES {files_table_name}(id)
                     )''')
     conn.commit()
+
     conn.close()
 
     return jsonify({"message": "User registered successfully"}), 200
@@ -315,45 +295,39 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
-    # Retrieve username or email and password from request
     data = request.json
-    if data is None:
-        return jsonify({"error": "Request data is missing or not in JSON format"}), 400
-    
     username_or_email = data.get('username_or_email')
     password = data.get('password')
 
-    if not username_or_email or not password:
-        return jsonify({"error": "Username/email or password is missing"}), 400
+    if not (username_or_email and password):
+        return jsonify({"error": "Missing username/email or password"}), 400
 
-    # Check if the username or email exists
-    if '@' in username_or_email:
-        user = get_user_by_email(username_or_email)
-    else:
-        user = get_user_by_username(username_or_email)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, username, email, password, salt, files_table FROM users WHERE username = %s OR email = %s",
+                   (username_or_email, username_or_email))
+    user = cursor.fetchone()
 
     if user is None:
+        conn.close()
         return jsonify({"error": "User not found"}), 404
 
-    # Verify the password
-    if not check_password_hash(user[3], password + user[4]):
+    user_id, username, email, hashed_password, salt, files_table_name = user
+
+    if not verify_password(password + salt, hashed_password):
+        conn.close()
         return jsonify({"error": "Invalid password"}), 401
 
-    # Retrieve the user's files table name
-    files_table = user[5]
+    session['user_id'] = user_id
+    session['username'] = username
+    session['email'] = email
+    session['files_table'] = files_table_name
 
-    # Store user's session information
-    session['user_id'] = user[0]
-    session['username'] = user[1]
-    session['email'] = user[2]
-    session['files_table'] = files_table
+    conn.close()
 
-    # Redirect to index.html
-    return redirect(url_for('index'))
+    return jsonify({"message": "Login successful"}), 200
 
-@app.route('/index')
-def index():
-    return render_template('index.html')
 
 
 
