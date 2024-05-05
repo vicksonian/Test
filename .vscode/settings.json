@@ -1,0 +1,33 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "serverDB",
+            "database": "servers_files",
+            "username": "famage2",
+            "password": ".7447"
+        },
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "DB_@333",
+            "database": "servers_files",
+            "username": "famage",
+            "password": ".7447"
+        },
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "r3r35",
+            "database": "servers_files",
+            "username": "postgres"
+        }
+    ]
+}
