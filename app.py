@@ -122,6 +122,9 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
+
+
+
 @app.route('/files')
 def list_files():
     if 'user_id' not in session:
@@ -159,6 +162,10 @@ def list_files():
     
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
+
+
+
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -303,6 +310,7 @@ def register():
 
 
 #login logic handling here
+# Modify the login route to set session variables
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -336,9 +344,6 @@ def login():
     session['files_table'] = files_table_name
 
     conn.close()
-
-    # Print session variables for debugging
-    print("Session variables:", session)
 
     return jsonify({"message": "Login successful"}), 200
 
