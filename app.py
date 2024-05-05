@@ -139,22 +139,39 @@ def get_file(file_id):
 
 @app.route('/files')
 def list_files():
-    # if 'user_id' not in session:
-    #     return jsonify({"error": "User not logged in"}), 401
+    data = request.json
+    username_or_email = data.get('username_or_email')
+    password = data.get('password')
 
-    files_table_name = session.get('files_table')
+    if not (username_or_email and password):
+        return jsonify({"error": "Missing username/email or password"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    cursor.execute("SELECT user_id, username, email, password, salt, files_table FROM users WHERE username = %s OR email = %s",
+                   (username_or_email, username_or_email))
+    user = cursor.fetchone()
+
+    if user is None:
+        conn.close()
+        return jsonify({"error": "User not found"}), 404
+
+    user_id, username, email, hashed_password, salt, files_table_name = user
+
+    if not verify_password(password + salt, hashed_password):
+        conn.close()
+        return jsonify({"error": "Invalid password"}), 401
+
     cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
     files = cursor.fetchall()
-    
+
     folders = []
     files_list = []
     for file_id, filename, is_folder, parent_folder_id in files:
         icon_data = get_file_icon(os.path.splitext(filename)[1])
         icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
-        
+
         if is_folder:
             folder_contents = list_folder_contents(file_id)
             folders.append({
@@ -171,9 +188,10 @@ def list_files():
                 "is_folder": False,
                 "icon_data": icon_data_base64
             })
-    
+
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
