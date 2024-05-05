@@ -5,6 +5,7 @@ import base64
 import io
 import secrets
 import string
+from functools import wraps
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template
@@ -137,7 +138,16 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({"error": "User not logged in"}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/files')
+@login_required
 def list_files():
     if 'user_id' not in session:
         return jsonify({"error": "User not logged in"}), 401
@@ -314,8 +324,7 @@ def register():
     return jsonify({"message": "User registered successfully"}), 200
 
 
-
-# Update the login route to return session information
+# Update the login route to return the entire response object
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -350,8 +359,8 @@ def login():
 
     conn.close()
 
-    # Return session information as part of the response
-    return jsonify({
+    # Return the entire response object including the session information
+    response = {
         "message": "Login successful",
         "session": {
             "user_id": user_id,
@@ -359,7 +368,8 @@ def login():
             "email": email,
             "files_table": files_table_name
         }
-    }), 200
+    }
+    return jsonify(response), 200
 
 
 
