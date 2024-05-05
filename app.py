@@ -327,7 +327,7 @@ def login():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id, username, email, password, salt, files_table FROM users WHERE username = %s OR email = %s",
+    cursor.execute("SELECT user_id, username, email, password, salt, files_table FROM users WHERE username = %s OR email = %s",
                    (username_or_email, username_or_email))
     user = cursor.fetchone()
 
