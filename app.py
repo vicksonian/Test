@@ -9,8 +9,8 @@ import jwt
 from functools import wraps
 from flask_bcrypt import Bcrypt
 import datetime
-datetime.timedelta()
-datetime.datetime.now()
+import datetime
+from datetime import timedelta
 from datetime import timezone, timedelta
 from flask import Flask, jsonify, send_file, request, redirect, url_for, render_template
 import uuid
@@ -194,10 +194,11 @@ def delete_file(file_id):
 @app.route('/recently_added_files')
 def get_recently_added_files():
     # Define the number of minutes to keep files in the recently added list
-    minutes_limit = 3  # Change this to the desired number of minutes
+    minutes_limit = 30  # Change this to the desired number of minutes
 
     # Calculate the time X minutes ago from the current time
-    oldest_allowed_time = datetime.now() - timedelta(minutes=minutes_limit)
+    oldest_allowed_time = datetime.datetime.now() - timedelta(minutes=minutes_limit)
+
 
     conn = get_db_connection()
     cursor = conn.cursor()
