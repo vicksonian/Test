@@ -159,7 +159,7 @@ def upload_file():
 
     for file in files:
         if file.filename == '':
-            continue
+            continue  # Skip empty file
 
         # Insert the file into the files table
         cursor.execute("INSERT INTO files (filename, content) VALUES (%s, %s) RETURNING id", (file.filename, file.read()))
