@@ -22,11 +22,10 @@ app = Flask(__name__)
 SECRET_KEY = 'UB96tx'
 app.secret_key = os.urandom(24)
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 bcrypt = Bcrypt(app)
-
 DATABASE_HOST = "dpg-cosjgr021fec73cheb50-a"
 DATABASE_PORT = 5432
 DATABASE_NAME = "db_clientcentral_pmg"
