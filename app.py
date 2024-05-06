@@ -9,7 +9,9 @@ import jwt
 from functools import wraps
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template
+import datetime
+from datetime import timezone
+from flask import Flask, jsonify, send_file, request, redirect, url_for, render_template
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
@@ -29,6 +31,13 @@ DATABASE_PORT = 5432
 DATABASE_NAME = "servers_files"
 DATABASE_USER = "famage"
 DATABASE_PASSWORD = "mHRhoJelrAnZ3Haw1fm9RrCuo7yJ9IQ4"
+
+
+# DATABASE_HOST = "localhost"
+# DATABASE_PORT = 5432
+# DATABASE_NAME = "servers_files"
+# DATABASE_USER = "postgres"
+# DATABASE_PASSWORD = ".7447"
 
 def get_db_connection():
     return psycopg2.connect(
@@ -252,15 +261,32 @@ def hash_password(password, salt):
 def verify_password(password, hashed_password):
     return bcrypt.check_password_hash(hashed_password, password)
 
-# Function to generate token
-def generate_token(user_id):
-    payload = {'user_id': user_id}
-    return jwt.encode(payload, SECRET_KEY, algorithm='HS256').decode('utf-8')
+
+
+# Function to generate token with expiration time
+def generate_token(user_id, expiration_time_minutes=60):
+    # Get the current time in UTC timezone
+    current_time_utc = datetime.datetime.now(timezone.utc)
+    
+    # Calculate the expiration time based on the current time
+    expiration_time = current_time_utc + datetime.timedelta(minutes=expiration_time_minutes)
+    
+    # Construct the payload with expiration time
+    payload = {
+        'user_id': user_id,
+        'exp': expiration_time
+    }
+    
+    # Encode the payload into a JWT token
+    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+
+
 
 # Function to decode token
 def decode_token(token):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        print(payload)
         return payload
     except jwt.ExpiredSignatureError:
         return None  # Token has expired
@@ -271,12 +297,25 @@ def decode_token(token):
 def login_required(func):
     @wraps(func)
     def decorated_function(*args, **kwargs):
+        # Extract the token from the authorization header
         token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({'error': 'Token is missing'}), 401
+        print("Received_token:\n", token)
 
+        # Check if token is present
+        if not token:
+            print("'error': 'Token key is not set or authenticated'")
+            return jsonify({'error': 'Token is missing'}), 401
+        
+        # Remove the "Bearer " prefix from the token
+        token = token.replace("Bearer ", "")
+        print(token)
+
+        # Decode the token
         payload = decode_token(token)
+        
+        # Check if payload is valid
         if not payload:
+            print("'error': 'Invalid token'")
             return jsonify({'error': 'Invalid token'}), 401
 
         # Retrieve the user's table name from the payload
@@ -292,6 +331,8 @@ def login_required(func):
         return func(*args, **kwargs)
 
     return decorated_function
+
+    
 
 # Function to retrieve the user's files table name
 def get_files_table_name(user_id):
@@ -369,6 +410,8 @@ def login():
                    (username_or_email, username_or_email))
     user = cursor.fetchone()
 
+    print("Retrieved user data from database:", user)
+
     if user is None:
         conn.close()
         return jsonify({"error": "User not found"}), 404
@@ -381,6 +424,7 @@ def login():
 
     # Generate token upon successful login
     token = generate_token(user_id)
+    print("Generated token:", token)
 
     conn.close()
 
