@@ -27,11 +27,11 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 bcrypt = Bcrypt(app)
 
-DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
+DATABASE_HOST = "dpg-cosjgr021fec73cheb50-a"
 DATABASE_PORT = 5432
-DATABASE_NAME = "servers_files"
+DATABASE_NAME = "db_clientcentral_pmg"
 DATABASE_USER = "famage"
-DATABASE_PASSWORD = "mHRhoJelrAnZ3Haw1fm9RrCuo7yJ9IQ4"
+DATABASE_PASSWORD = "NSu61doJ3iwfR6FikdxeZpYgqoARqK2v"
 
 
 # DATABASE_HOST = "localhost"
