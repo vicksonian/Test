@@ -5,6 +5,8 @@ import base64
 import io
 import secrets
 import string
+import jwt
+from functools import wraps
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, send_file, request, session, redirect, url_for, render_template
@@ -13,34 +15,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
-app.config['SESSION_COOKIE_SECURE'] = False
 
+SECRET_KEY = 'UB96tx'
+# app.secret_key = os.urandom(24)
+# app.config['SESSION_TYPE'] = 'filesystem'
+# app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 bcrypt = Bcrypt(app)
 
-table = 'newUsers_table'
-
-# DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
-# DATABASE_PORT = 5432
-# DATABASE_NAME = "servers_files"
-# DATABASE_USER = "famage"
-# DATABASE_PASSWORD = "mHRhoJelrAnZ3Haw1fm9RrCuo7yJ9IQ4"
-
-DATABASE_HOST = "localhost"
+DATABASE_HOST = "dpg-coqpn5vsc6pc73de9g5g-a.virginia-postgres.render.com"
 DATABASE_PORT = 5432
 DATABASE_NAME = "servers_files"
-DATABASE_USER = "postgres"
-DATABASE_PASSWORD = ".7447"
-
-
-# @app.before_request
-# def log_request_info():
-#     app.logger.debug('Headers: %s', request.headers)
-
+DATABASE_USER = "famage"
+DATABASE_PASSWORD = "mHRhoJelrAnZ3Haw1fm9RrCuo7yJ9IQ4"
 
 def get_db_connection():
     return psycopg2.connect(
@@ -51,7 +39,6 @@ def get_db_connection():
         password=DATABASE_PASSWORD
     )
 
-# Function to create tables if they do not exist
 def create_tables():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -104,8 +91,6 @@ def create_tables():
 
     conn.commit()
     conn.close()
-
-
 create_tables()
 
 def generate_random_id(length=8):
@@ -116,10 +101,6 @@ def generate_random_id(length=8):
 random_id = generate_random_id()
 
 def get_file_icon(extension):
-    # This function should return the icon data based on the file extension
-    # You can implement it to map file extensions to corresponding icons
-    # For simplicity, let's assume we have icons stored in the database as well
-    # and fetch them based on the file extension
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT icon_data FROM icons WHERE file_extension = %s", (extension,))
@@ -182,8 +163,6 @@ def upload_file():
 
     return jsonify({"message": "Files uploaded successfully"}), 200
 
-
-
 @app.route('/delete/<int:file_id>', methods=['DELETE'])
 def delete_file(file_id):
     conn = get_db_connection()
@@ -226,9 +205,6 @@ def get_recently_added_files():
     recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
     return jsonify({"files": recently_added_files})
 
-
-
-
 def generate_salt():
     return base64.b64encode(os.urandom(20)).decode('utf-8')
 
@@ -267,19 +243,64 @@ def get_user_by_email(email):
     conn.close()
     return user
 
-
-
 def generate_salt():
     return base64.b64encode(os.urandom(20)).decode('utf-8')
-
 
 def hash_password(password, salt):
     return bcrypt.generate_password_hash(password + salt).decode('utf-8')
 
-
 def verify_password(password, hashed_password):
     return bcrypt.check_password_hash(hashed_password, password)
 
+# Function to generate token
+def generate_token(user_id):
+    payload = {'user_id': user_id}
+    return jwt.encode(payload, SECRET_KEY, algorithm='HS256').decode('utf-8')
+
+# Function to decode token
+def decode_token(token):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None  # Token has expired
+    except jwt.InvalidTokenError:
+        return None  # Invalid token
+
+# Decorator function for verifying token and retrieving user's table name
+def login_required(func):
+    @wraps(func)
+    def decorated_function(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'error': 'Token is missing'}), 401
+
+        payload = decode_token(token)
+        if not payload:
+            return jsonify({'error': 'Invalid token'}), 401
+
+        # Retrieve the user's table name from the payload
+        user_id = payload['user_id']
+        files_table_name = get_files_table_name(user_id)
+
+        if not files_table_name:
+            return jsonify({'error': 'User not found or table name not available'}), 404
+
+        # Attach the user's table name to the request for further processing
+        request.user_files_table = files_table_name
+
+        return func(*args, **kwargs)
+
+    return decorated_function
+
+# Function to retrieve the user's files table name
+def get_files_table_name(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT files_table FROM users WHERE user_id = %s", (user_id,))
+    files_table_name = cursor.fetchone()
+    conn.close()
+    return files_table_name[0] if files_table_name else None
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -307,24 +328,24 @@ def register():
         return jsonify({"error": "Email already exists"}), 400
 
     # Generate a unique table name for the user's files
-    newUsers_table = f"UDB_x2fb_64_{uuid.uuid4().hex}"
+    files_table_name = f"UDB_x2fb_64_{uuid.uuid4().hex}"
 
     # Generate a random ID for the user
     user_id = generate_random_id()
 
     cursor.execute("INSERT INTO users (user_id, username, email, password, salt, files_table) VALUES (%s, %s, %s, %s, %s, %s)",
-                   (user_id, username, email, hashed_password, salt, newUsers_table))
+                   (user_id, username, email, hashed_password, salt, files_table_name))
     conn.commit()
 
     # Create a new table for the user's files
-    cursor.execute(f'''CREATE TABLE IF NOT EXISTS {newUsers_table} (
+    cursor.execute(f'''CREATE TABLE IF NOT EXISTS {files_table_name} (
                         id SERIAL PRIMARY KEY,
                         filename TEXT,
                         is_folder INTEGER DEFAULT 0,
                         content BYTEA,
                         icon_data BYTEA,
                         parent_folder_id INTEGER,
-                        FOREIGN KEY (parent_folder_id) REFERENCES {newUsers_table}(id)
+                        FOREIGN KEY (parent_folder_id) REFERENCES {files_table_name}(id)
                     )''')
     conn.commit()
 
@@ -332,20 +353,13 @@ def register():
 
     return jsonify({"message": "User registered successfully"}), 200
 
-
-
-
-# Modify the login route to return the user ID upon successful login
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
     username_or_email = data.get('username_or_email')
     password = data.get('password')
 
-    print("Received login request with username/email:", username_or_email)
-
     if not (username_or_email and password):
-        print("Missing username/email or password")
         return jsonify({"error": "Missing username/email or password"}), 400
 
     conn = get_db_connection()
@@ -356,66 +370,78 @@ def login():
     user = cursor.fetchone()
 
     if user is None:
-        print("User not found")
         conn.close()
         return jsonify({"error": "User not found"}), 404
 
-    user_id, username, email, hashed_password, salt, newUsers_table = user
+    user_id, username, email, hashed_password, salt, files_table_name = user
 
     if not verify_password(password + salt, hashed_password):
-        print("Invalid password")
         conn.close()
         return jsonify({"error": "Invalid password"}), 401
 
-    # Return the user ID upon successful login
+    # Generate token upon successful login
+    token = generate_token(user_id)
+
+    conn.close()
+
+    # Return the token along with the response
     response = {
         "message": "Login successful",
-        "user_id": user_id,
-        "files_table": newUsers_table
+        "token": token,
+        "files_table": files_table_name
     }
     return jsonify(response), 200
 
-# Add a logout route to clear the session data
-@app.route('/logout', methods=['POST'])
-def logout():
-    session.clear()  # Clear session data
-    return jsonify({"message": "Logged out successfully"}), 200
+# # Modify the login route to return the entire response object
+# @app.route('/login', methods=['POST'])
+# def login():
+#     data = request.json
+#     username_or_email = data.get('username_or_email')
+#     password = data.get('password')
 
+#     if not (username_or_email and password):
+#         return jsonify({"error": "Missing username/email or password"}), 400
 
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
 
+#     cursor.execute("SELECT user_id, username, email, password, salt, files_table FROM users WHERE username = %s OR email = %s",
+#                    (username_or_email, username_or_email))
+#     user = cursor.fetchone()
 
+#     if user is None:
+#         conn.close()
+#         return jsonify({"error": "User not found"}), 404
 
+#     user_id, username, email, hashed_password, salt, files_table_name = user
 
+#     if not verify_password(password + salt, hashed_password):
+#         conn.close()
+#         return jsonify({"error": "Invalid password"}), 401
 
+#     # Retrieve the files_table_name
+#     files_table_name = get_files_table_name(user_id)
 
+#     conn.close()
 
+#     # Return the files_table_name along with the response
+#     response = {
+#         "message": "Login successful",
+#         "files_table": files_table_name
+#     }
+#     return jsonify(response), 200
+
+# Modify the login route to return the entire response object
 
 @app.route('/files')
+@login_required
 def list_files():
-    user_id = session.get('user_id')
-    if user_id is None:
-        return redirect(url_for('login'))  # Redirect the user to login if not authenticated
+    # Retrieve the user's files table name from the request object
+    files_table_name = request.user_files_table
 
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    cursor.execute("SELECT files_table FROM users WHERE user_id = %s", (user_id,))
-    table_row = cursor.fetchone()
-
-    if table_row:
-        table_name = table_row[0]
-        print("Table name:", table_name)
-        cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {table_name}")
-        files = cursor.fetchall()
-        # Rest of your code...
-    else:
-        # Handle the case where no files table is found for the user
-        print("No files table found for user:", user_id)
-        # You might want to return an appropriate response here, like an error message or redirect
-
-
-
-    cursor.execute("SELECT id, filename, is_folder, parent_folder_id FROM  {table_name}")
+    cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id FROM {files_table_name}")
     files = cursor.fetchall()
     
     folders = []
@@ -443,6 +469,7 @@ def list_files():
     
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
