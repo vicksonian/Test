@@ -8,9 +8,10 @@ import string
 import jwt
 from functools import wraps
 from flask_bcrypt import Bcrypt
-from datetime import datetime, timedelta
 import datetime
-from datetime import timezone
+datetime.timedelta()
+datetime.datetime.now()
+from datetime import timezone, timedelta
 from flask import Flask, jsonify, send_file, request, redirect, url_for, render_template
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -19,9 +20,9 @@ from flask_cors import CORS
 app = Flask(__name__)
 
 SECRET_KEY = 'UB96tx'
-# app.secret_key = os.urandom(24)
-# app.config['SESSION_TYPE'] = 'filesystem'
-# app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
+app.secret_key = os.urandom(24)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 bcrypt = Bcrypt(app)
@@ -286,7 +287,6 @@ def generate_token(user_id, expiration_time_minutes=60):
 def decode_token(token):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        print(payload)
         return payload
     except jwt.ExpiredSignatureError:
         return None  # Token has expired
