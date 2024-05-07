@@ -618,6 +618,7 @@ def share_file():
 
 
 
+
 @app.route('/validate_user', methods=['POST'])
 @login_required
 def validate_user():
