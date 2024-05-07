@@ -608,8 +608,10 @@ def share_file():
         # Insert the file into the recipient user's table
         conn = get_db_connection()
         cursor = conn.cursor()
+
         cursor.execute("INSERT INTO %s (filename, content, shared_with) SELECT filename, content, %s FROM %s WHERE id = %s",
-                       (AsIs(recipient['files_table']), recipient['user_id'], request.user_files_table, file_id))
+               (AsIs(recipient['files_table']), recipient['user_id'], AsIs(request.user_files_table), file_id))
+
         conn.commit()
         conn.close()
 
@@ -621,7 +623,7 @@ def share_file():
 
 
 
-
+#user validation
 @app.route('/validate_user', methods=['POST'])
 @login_required
 def validate_user():
