@@ -6,6 +6,7 @@ import io
 import secrets
 import string
 import jwt
+from psycopg2.extensions import AsIs
 from functools import wraps
 from flask_bcrypt import Bcrypt
 import datetime
@@ -343,8 +344,10 @@ def register():
                         content BYTEA,
                         icon_data BYTEA,
                         parent_folder_id INTEGER,
+                        shared_with TEXT,  -- New column to store the user ID of the recipient if shared
                         FOREIGN KEY (parent_folder_id) REFERENCES {files_table_name}(id)
                     )''')
+
     conn.commit()
 
     conn.close()
@@ -534,6 +537,67 @@ def delete_file(file_id):
 
     return jsonify({"message": "File deleted successfully"}), 200
 
+def check_file_ownership(file_id):
+    # Retrieve the user's files table name from the request object
+    files_table_name = request.user_files_table
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT COUNT(*) FROM {files_table_name} WHERE id = %s", (file_id,))
+    count = cursor.fetchone()[0]
+    conn.close()
+
+    return count > 0
+
+
+
+@app.route('/share', methods=['POST'])
+@login_required
+def share_file():
+    data = request.json
+    file_id = data.get('file_id')
+    recipient_identifier = data.get('recipient_identifier')  # This could be either username or email
+
+    # Validate input
+    if not (file_id and recipient_identifier):
+        return jsonify({"error": "Missing file ID or recipient identifier"}), 400
+
+    # Check if the file exists and belongs to the current user
+    file_exists = check_file_ownership(file_id)
+    if not file_exists:
+        return jsonify({"error": "File not found or you don't have permission to share it"}), 404
+
+    # Find the recipient user by username or email
+    recipient = get_user_by_username(recipient_identifier)
+    if not recipient:
+        recipient = get_user_by_email(recipient_identifier)
+
+    if not recipient:
+        return jsonify({"error": "Recipient not found"}), 404
+
+    # Insert the file into the recipient user's table
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO %s (filename, content, shared_with) SELECT filename, content, %s FROM %s WHERE id = %s",
+                   (AsIs(recipient['files_table']), recipient['user_id'], request.user_files_table, file_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "File shared successfully"}), 200
+
+@app.route('/validate_user', methods=['POST'])
+@login_required
+def validate_user():
+    data = request.json
+    recipient_identifier = data.get('recipient_identifier')
+
+    # Check if the recipient exists in the users table by username or email
+    recipient = get_user_by_username(recipient_identifier)
+    if not recipient:
+        recipient = get_user_by_email(recipient_identifier)
+
+    # Return the result of the validation (whether the recipient exists)
+    return jsonify({"exists": recipient is not None})
 
 
 if __name__ == '__main__':
