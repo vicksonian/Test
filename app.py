@@ -24,8 +24,12 @@ app.secret_key = os.urandom(24)
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5501"}})
+
+# CORS(app)
 
 bcrypt = Bcrypt(app)
+
 DATABASE_HOST = "dpg-cosjgr021fec73cheb50-a"
 DATABASE_PORT = 5432
 DATABASE_NAME = "db_clientcentral_pmg"
@@ -35,7 +39,7 @@ DATABASE_PASSWORD = "NSu61doJ3iwfR6FikdxeZpYgqoARqK2v"
 
 # DATABASE_HOST = "localhost"
 # DATABASE_PORT = 5432
-# DATABASE_NAME = "servers_files"
+# DATABASE_NAME = "db_clientcentral_pmg"
 # DATABASE_USER = "postgres"
 # DATABASE_PASSWORD = ".7447"
 
@@ -60,6 +64,7 @@ def create_tables():
                         icon_data BYTEA,
                         parent_folder_id INTEGER,
                         FOREIGN KEY (parent_folder_id) REFERENCES files(id)
+
                     )''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS icons (
@@ -143,34 +148,6 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-
-    files = request.files.getlist('file')  # Retrieve list of files
-
-    if len(files) == 0:
-        return jsonify({"error": "No files selected"}), 400
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    for file in files:
-        if file.filename == '':
-            continue  # Skip empty file
-
-        # Insert the file into the files table
-        cursor.execute("INSERT INTO files (filename, content) VALUES (%s, %s) RETURNING id", (file.filename, file.read()))
-        file_id = cursor.fetchone()[0]
-
-        # Insert the file information into the recently_added_files table
-        cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
-
-    conn.commit()
-    conn.close()
-
-    return jsonify({"message": "Files uploaded successfully"}), 200
 
 @app.route('/delete/<int:file_id>', methods=['DELETE'])
 def delete_file(file_id):
@@ -191,29 +168,29 @@ def delete_file(file_id):
 
     return jsonify({"message": "File deleted successfully"}), 200
 
-@app.route('/recently_added_files')
-def get_recently_added_files():
-    # Define the number of minutes to keep files in the recently added list
-    minutes_limit = 30  # Change this to the desired number of minutes
+# @app.route('/recently_added_files')
+# def get_recently_added_files():
+#     # Define the number of minutes to keep files in the recently added list
+#     minutes_limit = 30  # Change this to the desired number of minutes
 
-    # Calculate the time X minutes ago from the current time
-    oldest_allowed_time = datetime.datetime.now() - timedelta(minutes=minutes_limit)
+#     # Calculate the time X minutes ago from the current time
+#     oldest_allowed_time = datetime.datetime.now() - timedelta(minutes=minutes_limit)
 
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
 
-    # Delete files older than the specified minutes limit
-    cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_time,))
-    conn.commit()
+#     # Delete files older than the specified minutes limit
+#     cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_time,))
+#     conn.commit()
 
-    # Fetch the recently added files within the specified minutes limit
-    cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
-    files = cursor.fetchall()
-    conn.close()
+#     # Fetch the recently added files within the specified minutes limit
+#     cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
+#     files = cursor.fetchall()
+#     conn.close()
 
-    recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
-    return jsonify({"files": recently_added_files})
+#     recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
+#     return jsonify({"files": recently_added_files})
 
 def generate_salt():
     return base64.b64encode(os.urandom(20)).decode('utf-8')
@@ -514,6 +491,43 @@ def list_files():
     conn.close()
     return jsonify({"folders": folders, "files": files_list})
 
+
+
+@app.route('/upload', methods=['POST'])
+@login_required
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    files = request.files.getlist('file')  # Retrieve list of files
+
+    if len(files) == 0:
+        return jsonify({"error": "No files selected"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Retrieve the user's files table name from the request object
+    files_table_name = request.user_files_table
+
+    for file in files:
+        if file.filename == '':
+            continue  # Skip empty file
+
+        # Insert the file into the user's files table
+        cursor.execute(f"INSERT INTO {files_table_name} (filename, content) VALUES (%s, %s) RETURNING id", (file.filename, file.read()))
+        file_record = cursor.fetchone()
+        if file_record is None:
+            return jsonify({"error": f"Failed to insert file '{file.filename}' into '{files_table_name}'"}), 500
+        file_id = file_record[0]
+
+        # Insert the file information into the recently_added_files table
+        # cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Files uploaded successfully"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
