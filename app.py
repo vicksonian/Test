@@ -551,21 +551,26 @@ def check_file_ownership(file_id):
 
 
 
+from flask import request, jsonify
+
 @app.route('/share', methods=['POST'])
 @login_required
 def share_file():
     data = request.json
-    file_id = data.get('file_id')
-    recipient_identifier = data.get('recipient_identifier')  # This could be either username or email
+    
+    # Retrieve file IDs and recipient identifier from the JSON request body
+    file_ids = data.get('file_ids')
+    recipient_identifier = data.get('recipient_identifier')
 
     # Validate input
-    if not (file_id and recipient_identifier):
-        return jsonify({"error": "Missing file ID or recipient identifier"}), 400
+    if not (file_ids and recipient_identifier):
+        return jsonify({"error": "Missing file IDs or recipient identifier"}), 400
 
-    # Check if the file exists and belongs to the current user
-    file_exists = check_file_ownership(file_id)
-    if not file_exists:
-        return jsonify({"error": "File not found or you don't have permission to share it"}), 404
+    # Check if all files exist and belong to the current user
+    for file_id in file_ids:
+        file_exists = check_file_ownership(file_id)
+        if not file_exists:
+            return jsonify({"error": f"File with ID {file_id} not found or you don't have permission to share it"}), 404
 
     # Find the recipient user by username or email
     recipient = get_user_by_username(recipient_identifier)
@@ -575,15 +580,19 @@ def share_file():
     if not recipient:
         return jsonify({"error": "Recipient not found"}), 404
 
-    # Insert the file into the recipient user's table
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO %s (filename, content, shared_with) SELECT filename, content, %s FROM %s WHERE id = %s",
-                   (AsIs(recipient['files_table']), recipient['user_id'], request.user_files_table, file_id))
-    conn.commit()
-    conn.close()
+    # Share each file with the recipient
+    for file_id in file_ids:
+        # Insert the file into the recipient user's table
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO %s (filename, content, shared_with) SELECT filename, content, %s FROM %s WHERE id = %s",
+                       (AsIs(recipient['files_table']), recipient['user_id'], request.user_files_table, file_id))
+        conn.commit()
+        conn.close()
 
-    return jsonify({"message": "File shared successfully"}), 200
+    return jsonify({"message": "Files shared successfully"}), 200
+
+
 
 @app.route('/validate_user', methods=['POST'])
 @login_required
