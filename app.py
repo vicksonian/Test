@@ -509,6 +509,8 @@ def upload_file():
 
     return jsonify({"message": "Files uploaded successfully"}), 200
 
+
+
 @app.route('/delete/<int:file_id>', methods=['DELETE'])
 @login_required
 def delete_file(file_id):
@@ -519,18 +521,19 @@ def delete_file(file_id):
     files_table_name = request.user_files_table
 
     # Check if the file exists
-    cursor.execute("SELECT filename FROM {files_table_name} WHERE id = %s", (file_id,))
+    cursor.execute(f"SELECT filename FROM {files_table_name} WHERE id = %s", (file_id,))
     file_data = cursor.fetchone()
     if not file_data:
         conn.close()
         return jsonify({"error": "File not found"}), 404
 
     # Delete the file from the database
-    cursor.execute("DELETE FROM {files_table_name} WHERE id = %s", (file_id,))
+    cursor.execute(f"DELETE FROM {files_table_name} WHERE id = %s", (file_id,))
     conn.commit()
     conn.close()
 
     return jsonify({"message": "File deleted successfully"}), 200
+
 
 
 if __name__ == '__main__':
