@@ -148,26 +148,6 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
-
-@app.route('/delete/<int:file_id>', methods=['DELETE'])
-def delete_file(file_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Check if the file exists
-    cursor.execute("SELECT filename FROM files WHERE id = %s", (file_id,))
-    file_data = cursor.fetchone()
-    if not file_data:
-        conn.close()
-        return jsonify({"error": "File not found"}), 404
-
-    # Delete the file from the database
-    cursor.execute("DELETE FROM files WHERE id = %s", (file_id,))
-    conn.commit()
-    conn.close()
-
-    return jsonify({"message": "File deleted successfully"}), 200
-
 # @app.route('/recently_added_files')
 # def get_recently_added_files():
 #     # Define the number of minutes to keep files in the recently added list
@@ -528,6 +508,30 @@ def upload_file():
     conn.close()
 
     return jsonify({"message": "Files uploaded successfully"}), 200
+
+@app.route('/delete/<int:file_id>', methods=['DELETE'])
+@login_required
+def delete_file(file_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Retrieve the user's files table name from the request object
+    files_table_name = request.user_files_table
+
+    # Check if the file exists
+    cursor.execute("SELECT filename FROM {files_table_name} WHERE id = %s", (file_id,))
+    file_data = cursor.fetchone()
+    if not file_data:
+        conn.close()
+        return jsonify({"error": "File not found"}), 404
+
+    # Delete the file from the database
+    cursor.execute("DELETE FROM {files_table_name} WHERE id = %s", (file_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "File deleted successfully"}), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
