@@ -215,19 +215,22 @@ def email_exists(email):
 
 def get_user_by_username(username):
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)  # Set dictionary=True to fetch results as dictionaries
+    cursor = conn.cursor()
     cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-    user = cursor.fetchone()
+    columns = [column[0] for column in cursor.description]  # Extract column names
+    user_data = cursor.fetchone()
     conn.close()
-    return user
+    return dict(zip(columns, user_data)) if user_data else None
 
 def get_user_by_email(email):
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)  # Set dictionary=True to fetch results as dictionaries
+    cursor = conn.cursor()
     cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
+    columns = [column[0] for column in cursor.description]  # Extract column names
+    user_data = cursor.fetchone()
     conn.close()
-    return user
+    return dict(zip(columns, user_data)) if user_data else None
+
 
 
 
