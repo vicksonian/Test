@@ -92,14 +92,15 @@ def create_tables():
                         reset_token TEXT,
                         expiry_time TEXT
                     )''')
+    # cursor.execute('''CREATE TABLE IF NOT EXISTS recently_added_files (
+    #                     id SERIAL PRIMARY KEY,
+    #                     file_id INTEGER,
+    #                     filename TEXT,
+    #                     upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    #                     FOREIGN KEY (file_id) REFERENCES {}(id)
+    #                 )'''.format(files_table_name))
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS recently_added_files (
-                        id SERIAL PRIMARY KEY,
-                        file_id INTEGER,
-                        filename TEXT,
-                        upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (file_id) REFERENCES {files_table_name}(id)
-                    )''')
+
 
     cursor.execute('''ALTER TABLE users 
                     ADD COLUMN IF NOT EXISTS files_table TEXT''')
@@ -322,6 +323,11 @@ def get_files_table_name(user_id):
     conn.close()
     return files_table_name[0] if files_table_name else None
 
+
+
+
+
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
@@ -369,11 +375,20 @@ def register():
                         FOREIGN KEY (parent_folder_id) REFERENCES {files_table_name}(id)
                     )''')
 
-    conn.commit()
+    # Create the recently_added_files table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS recently_added_files (
+                        id SERIAL PRIMARY KEY,
+                        file_id INTEGER,
+                        filename TEXT,
+                        upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (file_id) REFERENCES {}(id)
+                    )'''.format(files_table_name))
 
+    conn.commit()
     conn.close()
 
     return jsonify({"message": "User registered successfully"}), 200
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -522,12 +537,12 @@ def upload_file():
 
         # Insert the file into the user's files table
         cursor.execute(f"INSERT INTO {files_table_name} (filename, content) VALUES (%s, %s) RETURNING id", (file.filename, file.read()))
-        file_record = cursor.fetchone()
-        if file_record is None:
+        file_id_record = cursor.fetchone()
+        if file_id_record is None:
             return jsonify({"error": f"Failed to insert file '{file.filename}' into '{files_table_name}'"}), 500
-        file_id = file_record[0]
+        file_id = file_id_record[0]
 
-        ##Insert the file information into the recently_added_files table
+        # Insert the file information into the recently_added_files table
         cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
 
     conn.commit()
