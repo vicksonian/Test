@@ -98,7 +98,7 @@ def create_tables():
                         file_id INTEGER,
                         filename TEXT,
                         upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (file_id) REFERENCES files(id)
+                        FOREIGN KEY (file_id) REFERENCES {files_table_name}(id)
                     )''')
 
     cursor.execute('''ALTER TABLE users 
@@ -527,8 +527,8 @@ def upload_file():
             return jsonify({"error": f"Failed to insert file '{file.filename}' into '{files_table_name}'"}), 500
         file_id = file_record[0]
 
-        # Insert the file information into the recently_added_files table
-        # cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
+        ##Insert the file information into the recently_added_files table
+        cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
 
     conn.commit()
     conn.close()
