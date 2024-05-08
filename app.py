@@ -417,7 +417,9 @@ def login():
     response = {
         "message": "Login successful",
         "token": token,
-        "files_table": files_table_name
+        "files_table": files_table_name,
+        "username": username
+
     }
     return jsonify(response), 200
 
