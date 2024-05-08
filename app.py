@@ -192,24 +192,6 @@ def email_exists(email):
     conn.close()
     return result
 
-# def get_user_by_username(username):
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
-#     cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-#     user = cursor.fetchone()
-#     conn.close()
-#     return user
-
-# def get_user_by_email(email):
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
-#     cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-#     user = cursor.fetchone()
-#     conn.close()
-#     return user
-
-
-
 def get_user_by_username(username):
     conn = get_db_connection()
     cursor = conn.cursor()
