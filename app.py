@@ -149,29 +149,25 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
-# @app.route('/recently_added_files')
-# def get_recently_added_files():
-#     # Define the number of minutes to keep files in the recently added list
-#     minutes_limit = 30  # Change this to the desired number of minutes
+@app.route('/recently_added_files')
+def get_recently_added_files():
 
-#     # Calculate the time X minutes ago from the current time
-#     oldest_allowed_time = datetime.datetime.now() - timedelta(minutes=minutes_limit)
+    minutes_limit = 30
 
+    oldest_allowed_time = datetime.datetime.now() - timedelta(minutes=minutes_limit)
 
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-#     # Delete files older than the specified minutes limit
-#     cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_time,))
-#     conn.commit()
+    cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_time,))
+    conn.commit()
 
-#     # Fetch the recently added files within the specified minutes limit
-#     cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
-#     files = cursor.fetchall()
-#     conn.close()
+    cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
+    files = cursor.fetchall()
+    conn.close()
 
-#     recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
-#     return jsonify({"files": recently_added_files})
+    recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
+    return jsonify({"files": recently_added_files})
 
 def generate_salt():
     return base64.b64encode(os.urandom(20)).decode('utf-8')
