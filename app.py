@@ -451,7 +451,7 @@ def login():
 @app.route('/files')
 @login_required
 def list_files():
-    # Retrieve the user's files table name from the request object
+
     files_table_name = request.user_files_table
 
     conn = get_db_connection()
@@ -501,7 +501,6 @@ def upload_file():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Retrieve the user's files table name from the request object
     files_table_name = request.user_files_table
 
     for file in files:
