@@ -127,7 +127,10 @@ def list_folder_contents(folder_id):
 def get_file(file_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT filename, content FROM files WHERE id = %s", (file_id,))
+
+
+
+    cursor.execute("SELECT filename, content FROM {files_table_name} WHERE id = %s", (file_id,))
     file_data = cursor.fetchone()
     conn.close()
     if file_data:
@@ -141,25 +144,7 @@ def get_file(file_id):
         )
     return jsonify({"error": "File not found"}), 404
 
-@app.route('/recently_added_files')
-def get_recently_added_files():
 
-    minutes_limit = 30
-
-    oldest_allowed_time = datetime.datetime.now() - timedelta(minutes=minutes_limit)
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_time,))
-    conn.commit()
-
-    cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
-    files = cursor.fetchall()
-    conn.close()
-
-    recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
-    return jsonify({"files": recently_added_files})
 
 def generate_salt():
     return base64.b64encode(os.urandom(20)).decode('utf-8')
@@ -407,46 +392,8 @@ def login():
     }
     return jsonify(response), 200
 
-# # Modify the login route to return the entire response object
-# @app.route('/login', methods=['POST'])
-# def login():
-#     data = request.json
-#     username_or_email = data.get('username_or_email')
-#     password = data.get('password')
 
-#     if not (username_or_email and password):
-#         return jsonify({"error": "Missing username/email or password"}), 400
 
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
-
-#     cursor.execute("SELECT user_id, username, email, password, salt, files_table FROM users WHERE username = %s OR email = %s",
-#                    (username_or_email, username_or_email))
-#     user = cursor.fetchone()
-
-#     if user is None:
-#         conn.close()
-#         return jsonify({"error": "User not found"}), 404
-
-#     user_id, username, email, hashed_password, salt, files_table_name = user
-
-#     if not verify_password(password + salt, hashed_password):
-#         conn.close()
-#         return jsonify({"error": "Invalid password"}), 401
-
-#     # Retrieve the files_table_name
-#     files_table_name = get_files_table_name(user_id)
-
-#     conn.close()
-
-#     # Return the files_table_name along with the response
-#     response = {
-#         "message": "Login successful",
-#         "files_table": files_table_name
-#     }
-#     return jsonify(response), 200
-
-# Modify the login route to return the entire response object
 
 @app.route('/files')
 @login_required
@@ -515,12 +462,36 @@ def upload_file():
         file_id = file_id_record[0]
 
         # Insert the file information into the recently_added_files table
-        cursor.execute("INSERT INTO recently_added_files (file_id, filename) VALUES (%s, %s)", (file_id, file.filename))
+        cursor.execute("INSERT INTO recently_added_files (filename) VALUES (%s)", (file.filename,))
 
     conn.commit()
     conn.close()
 
     return jsonify({"message": "Files uploaded successfully"}), 200
+
+
+
+@app.route('/recently_added_files')
+@login_required
+def get_recently_added_files():
+
+    minutes_limit = 30
+
+    oldest_allowed_time = datetime.datetime.now() - timedelta(minutes=minutes_limit)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM recently_added_files WHERE upload_time < %s", (oldest_allowed_time,))
+    conn.commit()
+
+    cursor.execute("SELECT id, filename FROM recently_added_files ORDER BY upload_time DESC")
+    files = cursor.fetchall()
+    conn.close()
+
+    recently_added_files = [{"id": file_id, "filename": filename} for file_id, filename in files]
+    return jsonify({"files": recently_added_files})
+
 
 
 
@@ -546,6 +517,10 @@ def delete_file(file_id):
     conn.close()
 
     return jsonify({"message": "File deleted successfully"}), 200
+
+
+
+
 
 def check_file_ownership(file_id):
     # Retrieve the user's files table name from the request object
