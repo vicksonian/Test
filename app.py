@@ -123,16 +123,20 @@ def list_folder_contents(folder_id):
     conn.close()
     return files
 
+
+
 @app.route('/files/<int:file_id>')
 def get_file(file_id):
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    files_table_name = request.user_files_table
 
-
-    cursor.execute("SELECT filename, content FROM {files_table_name} WHERE id = %s", (file_id,))
+    # Modify the query to correctly insert the table name
+    cursor.execute(f"SELECT filename, content FROM {files_table_name} WHERE id = %s", (file_id,))
     file_data = cursor.fetchone()
     conn.close()
+
     if file_data:
         filename, content = file_data
         # Return the file as an attachment
@@ -143,6 +147,7 @@ def get_file(file_id):
             download_name=filename
         )
     return jsonify({"error": "File not found"}), 404
+
 
 
 
