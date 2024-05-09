@@ -336,11 +336,10 @@ def register():
     # Create the recently_added_files table
     cursor.execute('''CREATE TABLE IF NOT EXISTS recently_added_files (
                         id SERIAL PRIMARY KEY,
-                        file_id INTEGER,
                         filename TEXT,
-                        upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (file_id) REFERENCES {}(id)
-                    )'''.format(files_table_name))
+                        upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )''')
+
 
     conn.commit()
     conn.close()
