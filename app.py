@@ -125,28 +125,6 @@ def list_folder_contents(folder_id):
 
 
 
-@app.route('/files/<int:file_id>')
-def get_file(file_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    files_table_name = request.user_files_table
-
-    # Modify the query to correctly insert the table name
-    cursor.execute(f"SELECT filename, content FROM {files_table_name} WHERE id = %s", (file_id,))
-    file_data = cursor.fetchone()
-    conn.close()
-
-    if file_data:
-        filename, content = file_data
-        # Return the file as an attachment
-        return send_file(
-            io.BytesIO(content),
-            mimetype='application/octet-stream',
-            as_attachment=True,
-            download_name=filename
-        )
-    return jsonify({"error": "File not found"}), 404
 
 
 
@@ -236,29 +214,27 @@ def decode_token(token):
     except jwt.InvalidTokenError:
         return None  # Invalid token
 
+
+
 # Decorator function for verifying token and retrieving user's table name
 def login_required(func):
     @wraps(func)
     def decorated_function(*args, **kwargs):
         # Extract the token from the authorization header
         token = request.headers.get('Authorization')
-        print("Received_token:\n", token)
 
         # Check if token is present
         if not token:
-            print("'error': 'Token key is not set or authenticated'")
             return jsonify({'error': 'Token is missing'}), 401
-        
+
         # Remove the "Bearer " prefix from the token
         token = token.replace("Bearer ", "")
-        print(token)
 
         # Decode the token
         payload = decode_token(token)
-        
+
         # Check if payload is valid
         if not payload:
-            print("'error': 'Invalid token'")
             return jsonify({'error': 'Invalid token'}), 401
 
         # Retrieve the user's table name from the payload
@@ -602,6 +578,32 @@ def validate_user():
     # Return the result of the validation (whether the recipient exists)
     return jsonify({"exists": recipient is not None})
 
+
+
+@app.route('/files/<int:file_id>')
+@login_required
+def get_file(file_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Retrieve the user's table name from the request object
+    files_table_name = request.user_files_table
+
+    # Modify the query to correctly insert the table name
+    cursor.execute(f"SELECT filename, content FROM {files_table_name} WHERE id = %s", (file_id,))
+    file_data = cursor.fetchone()
+    conn.close()
+
+    if file_data:
+        filename, content = file_data
+        # Return the file as an attachment
+        return send_file(
+            io.BytesIO(content),
+            mimetype='application/octet-stream',
+            as_attachment=True,
+            download_name=filename
+        )
+    return jsonify({"error": "File not found"}), 404
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
