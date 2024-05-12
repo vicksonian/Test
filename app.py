@@ -34,17 +34,17 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5501"}})
 
 bcrypt = Bcrypt(app)
-DATABASE_HOST = "dpg-cosjgr021fec73cheb50-a"
-DATABASE_PORT = 5432
-DATABASE_NAME = "db_clientcentral_pmg"
-DATABASE_USER = "famage"
-DATABASE_PASSWORD = "NSu61doJ3iwfR6FikdxeZpYgqoARqK2v"
-
-# DATABASE_HOST = "localhost"
+# DATABASE_HOST = "dpg-cosjgr021fec73cheb50-a"
 # DATABASE_PORT = 5432
 # DATABASE_NAME = "db_clientcentral_pmg"
-# DATABASE_USER = "postgres"
-# DATABASE_PASSWORD = ".7447"
+# DATABASE_USER = "famage"
+# DATABASE_PASSWORD = "NSu61doJ3iwfR6FikdxeZpYgqoARqK2v"
+
+DATABASE_HOST = "localhost"
+DATABASE_PORT = 5432
+DATABASE_NAME = "db_clientcentral_pmg"
+DATABASE_USER = "postgres"
+DATABASE_PASSWORD = ".7447"
 
 def get_db_connection():
     return psycopg2.connect(
@@ -235,8 +235,6 @@ def display_table_sizes(files_table_name):
     }
     
     return jsonify(response)
-
-
 
 def login_required(func):
     @wraps(func)
@@ -467,32 +465,6 @@ def get_table_sizes():
     files_table_name = request.user_files_table
     return display_table_sizes(files_table_name)
 
-
-# @app.route('/upload', methods=['POST'])
-# @login_required
-# def upload_file():
-#     if 'file' not in request.files:
-#         return jsonify({"error": "No file part"}), 400
-#     files = request.files.getlist('file')  
-#     if len(files) == 0:
-#         return jsonify({"error": "No files selected"}), 400
-#     conn = get_db_connection()
-#     cursor = conn.cursor()
-#     files_table_name = request.user_files_table
-#     for file in files:
-#         if file.filename == '':
-#             continue
-#         cursor.execute(f"INSERT INTO {files_table_name} (filename, content, mimetype) VALUES (%s, %s, %s) RETURNING id",
-#                    (file.filename, file.read(), file.mimetype))
-#         file_id_record = cursor.fetchone()
-#         if file_id_record is None:
-#             return jsonify({"error": f"Failed to insert file '{file.filename}' into '{files_table_name}'"}), 500
-#         file_id = file_id_record[0]
-#         cursor.execute("INSERT INTO recently_added_files (filename) VALUES (%s)", (file.filename,))
-#     conn.commit()
-#     conn.close()
-#     return jsonify({"message": "Files uploaded successfully"}), 200
-
 @app.route('/recently_added_files')
 @login_required
 def get_recently_added_files():
@@ -589,43 +561,6 @@ def validate_user():
     if not recipient:
         recipient = get_user_by_email(recipient_identifier)
     return jsonify({"exists": recipient is not None})
-
-def get_user_id_from_token(token):
-    payload = decode_token(token)
-    return payload.get('user_id') if payload else None
-
-def revoke_other_session_tokens(user_id):
-    current_session_id = request.headers.get('Session-ID')
-    if not current_session_id:
-        return
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE sessions SET active = FALSE WHERE user_id = %s AND session_id != %s", (user_id, current_session_id))
-    conn.commit()
-    conn.close()
-
-def update_user_status(user_id, logged_in):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET logged_in = %s WHERE user_id = %s", (logged_in, user_id))
-    conn.commit()
-    conn.close()
-
-def clear_session_data(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM session_data WHERE user_id = %s", (user_id,))
-    conn.commit()
-    conn.close()
-
-@app.route('/logout', methods=['POST'])
-def logout():
-    user_id = get_user_id_from_token(request.headers.get('Authorization'))
-    if user_id:
-        revoke_other_session_tokens(user_id)
-        update_user_status(user_id, logged_in=False)
-        clear_session_data(user_id)
-    return jsonify({"message": "Logged out successfully"}), 200
 
 
 if __name__ == '__main__':
