@@ -34,17 +34,17 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5501"}})
 
 bcrypt = Bcrypt(app)
-# DATABASE_HOST = "dpg-cosjgr021fec73cheb50-a"
-# DATABASE_PORT = 5432
-# DATABASE_NAME = "db_clientcentral_pmg"
-# DATABASE_USER = "famage"
-# DATABASE_PASSWORD = "NSu61doJ3iwfR6FikdxeZpYgqoARqK2v"
-
-DATABASE_HOST = "localhost"
+DATABASE_HOST = "dpg-cosjgr021fec73cheb50-a"
 DATABASE_PORT = 5432
 DATABASE_NAME = "db_clientcentral_pmg"
-DATABASE_USER = "postgres"
-DATABASE_PASSWORD = ".7447"
+DATABASE_USER = "famage"
+DATABASE_PASSWORD = "NSu61doJ3iwfR6FikdxeZpYgqoARqK2v"
+
+# DATABASE_HOST = "localhost"
+# DATABASE_PORT = 5432
+# DATABASE_NAME = "db_clientcentral_pmg"
+# DATABASE_USER = "postgres"
+# DATABASE_PASSWORD = ".7447"
 
 def get_db_connection():
     return psycopg2.connect(
