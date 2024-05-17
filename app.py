@@ -489,14 +489,20 @@ def delete_file(file_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     files_table_name = request.user_files_table
+    
+    # Check if the file exists
     cursor.execute(f"SELECT filename FROM {files_table_name} WHERE id = %s", (file_id,))
     file_data = cursor.fetchone()
     if not file_data:
         conn.close()
         return jsonify({"error": "File not found"}), 404
+    
+    # Delete the file from the database
     cursor.execute(f"DELETE FROM {files_table_name} WHERE id = %s", (file_id,))
     conn.commit()
     conn.close()
+    
+    # Return a success message
     return jsonify({"message": "File deleted successfully"}), 200
 
 def check_file_ownership(file_id):
