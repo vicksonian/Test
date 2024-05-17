@@ -563,10 +563,6 @@ def download_file(file_id):
 def validate_user():
     data = request.json
     recipient_identifier = data.get('recipient_identifier')
-    
-    # Log recipient_identifier for debugging
-    print("Recipient Identifier:", recipient_identifier)
-    
     recipient = get_user_by_username(recipient_identifier)
     if not recipient:
         recipient = get_user_by_email(recipient_identifier)
