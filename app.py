@@ -517,28 +517,35 @@ def check_file_ownership(file_id):
 @app.route('/share', methods=['POST'])
 @login_required
 def share_file():
-    data = request.json  
+    data = request.json
+    app.logger.debug(f'Received data: {data}')  # Add logging to debug received data
     file_ids = data.get('file_ids')
     recipient_identifier = data.get('recipient_identifier')
+
     if not (file_ids and recipient_identifier):
         return jsonify({"error": "Missing file IDs or recipient identifier"}), 400
+    
     for file_id in file_ids:
         file_exists = check_file_ownership(file_id)
         if not file_exists:
             return jsonify({"error": f"File with ID {file_id} not found or you don't have permission to share it"}), 404
+    
     recipient = get_user_by_username(recipient_identifier)
     if not recipient:
         recipient = get_user_by_email(recipient_identifier)
     if not recipient:
         return jsonify({"error": "Recipient not found"}), 404
+
     for file_id in file_ids:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO %s (filename, content, shared_with) SELECT filename, content, %s FROM %s WHERE id = %s",
-               (AsIs(recipient['files_table']), recipient['user_id'], AsIs(request.user_files_table), file_id))
+                       (AsIs(recipient['files_table']), recipient['user_id'], AsIs(request.user_files_table), file_id))
         conn.commit()
         conn.close()
+
     return jsonify({"message": "Files shared successfully"}), 200
+
 
 @app.route('/download/<int:file_id>')
 @login_required
