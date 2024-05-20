@@ -568,32 +568,38 @@ def download_file(file_id):
 @app.route('/rename', methods=['POST'])
 @login_required
 def rename_file():
-    data = request.json
-    file_id = data.get('file_id')
-    new_filename = data.get('new_filename')
-    
-    if not file_id or not new_filename:
-        return jsonify({"error": "Missing file ID or new filename"}), 400
-    
-    files_table_name = request.user_files_table
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Check if the file exists and user has permission
-    cursor.execute(f"SELECT filename FROM {files_table_name} WHERE id = %s", (file_id,))
-    file_data = cursor.fetchone()
-    
-    if not file_data:
+    try:
+        data = request.json
+        file_id = data.get('file_id')
+        new_filename = data.get('new_filename')
+        
+        if not file_id or not new_filename:
+            return jsonify({"error": "Missing file ID or new filename"}), 400
+        
+        files_table_name = request.user_files_table
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if the file exists and user has permission
+        cursor.execute(f"SELECT filename FROM {files_table_name} WHERE id = %s", (file_id,))
+        file_data = cursor.fetchone()
+        
+        if not file_data:
+            conn.close()
+            return jsonify({"error": "File not found"}), 404
+        
+        # Rename the file
+        cursor.execute(f"UPDATE {files_table_name} SET filename = %s WHERE id = %s", (new_filename, file_id))
+        conn.commit()
         conn.close()
-        return jsonify({"error": "File not found"}), 404
-    
-    # Rename the file
-    cursor.execute(f"UPDATE {files_table_name} SET filename = %s WHERE id = %s", (new_filename, file_id))
-    conn.commit()
-    conn.close()
-    
-    return jsonify({"message": "File renamed successfully"}), 200
+        
+        return jsonify({"message": "File renamed successfully"}), 200
+    except Exception as e:
+        # Log the exception and return a JSON error response
+        app.logger.error(f"Error renaming file: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route('/validate_user', methods=['POST'])
 @login_required
