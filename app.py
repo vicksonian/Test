@@ -6,7 +6,12 @@ import io
 import secrets
 import string
 import jwt
+import random
+import ssl
 import math
+import smtplib
+from email.message import EmailMessage
+from email.mime.text import MIMEText
 import mimetypes
 from psycopg2.extensions import AsIs
 from functools import wraps
@@ -82,14 +87,18 @@ def create_tables():
                         salt TEXT,
                         files_table TEXT
                     )''')
+    
     cursor.execute('''CREATE TABLE IF NOT EXISTS password_resets (
-                        id SERIAL PRIMARY KEY,
-                        email TEXT,
-                        reset_token TEXT,
-                        expiry_time TEXT
+                        user_id TEXT PRIMARY KEY,
+                        reset_code TEXT,
+                        expires_at TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(user_id)
                     )''')
+    
     cursor.execute('''ALTER TABLE users 
                     ADD COLUMN IF NOT EXISTS files_table TEXT''')
+    # cursor.execute('''ALTER TABLE password_resets 
+    #                 ADD COLUMN IF NOT EXISTS user_id TEXT PRIMARY KEY''')
     conn.commit()
     conn.close()
 create_tables()
@@ -351,6 +360,159 @@ def login():
         return response
 
     return jsonify(response), 200
+
+@app.route('/forgot_password', methods=['POST'])
+@login_required
+def forgot_password():
+    data = request.json
+    email = data.get('email')
+    
+    # Validate the email
+    if not email:
+        return jsonify({"error": "Missing email"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id, email FROM users WHERE email = %s", (email,))
+    user_email = cursor.fetchone()
+
+    if user_email is None:
+        conn.close()
+        return jsonify({"error": "Email not found"}), 404
+
+    user_id, user_email = user_email
+    reset_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+    cursor.execute(
+        "INSERT INTO password_resets (user_id, reset_code, expires_at) VALUES (%s, %s, NOW() + INTERVAL '1 hour') "
+        "ON CONFLICT (user_id) DO UPDATE SET reset_code = %s, expires_at = NOW() + INTERVAL '1 hour'",
+        (user_id, reset_code, reset_code)
+    )
+    conn.commit()
+    conn.close()
+
+    # Send the reset code to the user's email
+    email_sender = 'vicksoniangeorge322@gmail.com'
+    email_password = "xwml awef hpyq issq"
+    email_receiver = user_email  # Correctly set the user's email here
+    email_subject = "Password Reset"
+    email_body = f"Your reset code is: {reset_code}"
+    
+    em = EmailMessage()
+    em['From'] = email_sender
+    em['To'] = email_receiver
+    em['Subject'] = email_subject
+    em.set_content(email_body)
+
+    context = ssl.create_default_context()
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
+            smtp.login(email_sender, email_password)
+            smtp.send_message(em)
+    except smtplib.SMTPException as e:
+        print(f"Error sending email: {e}")
+        return jsonify({"error": "Failed to send email"}), 500
+
+    return jsonify({"message": "Reset code sent to email"}), 200
+
+
+
+@app.route('/verify_reset_code', methods=['POST'])
+def verify_reset_code():
+    data = request.json
+    email = data.get('email')
+    reset_code = data.get('reset_code')
+
+    if not email or not reset_code:
+        return jsonify({"error": "Missing email or reset code"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT user_id FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({"error": "Invalid email"}), 404
+
+    user_id = user[0]
+    cursor.execute(
+        "SELECT reset_code FROM password_resets WHERE user_id = %s AND reset_code = %s AND expires_at > NOW()", 
+        (user_id, reset_code)
+    )
+    valid_reset_code = cursor.fetchone()
+
+    if not valid_reset_code:
+        conn.close()
+        return jsonify({"error": "Invalid or expired reset code"}), 400
+
+    conn.close()
+    return jsonify({"message": "Reset code verified"}), 200
+
+@app.route('/resetpassword')
+def reset_password():
+    return render_template('new_password.html')
+
+
+@app.route('/new_password', methods=['POST'])
+def new_password():
+    data = request.json
+    email = data.get('email')
+    reset_code = data.get('reset_code')
+    new_password = data.get('new_password')
+    confirm_password = data.get('confirm_password')
+    
+    if not email or not reset_code or not new_password or not confirm_password:
+        return jsonify({"error": "Missing data"}), 400
+
+    if new_password != confirm_password:
+        return jsonify({"error": "Passwords do not match"}), 400
+
+    # Validate the new password (example: at least 8 characters)
+    if len(new_password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters long"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT user_id FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({"error": "Invalid email"}), 404
+
+    user_id = user[0]
+    cursor.execute(
+        "SELECT reset_code FROM password_resets WHERE user_id = %s AND reset_code = %s AND expires_at > NOW()", 
+        (user_id, reset_code)
+    )
+    valid_reset_code = cursor.fetchone()
+
+    if not valid_reset_code:
+        conn.close()
+        return jsonify({"error": "Invalid or expired reset code"}), 400
+
+    # Generate salt
+    salt = generate_salt()
+    
+    # Hash the password with the custom salt
+    hashed_password = hash_password(new_password, salt)
+    
+    cursor.execute(
+        "UPDATE users SET password = %s, salt = %s WHERE user_id = %s", 
+        (hashed_password, salt, user_id)
+    )
+    cursor.execute(
+        "DELETE FROM password_resets WHERE user_id = %s", 
+        (user_id,)
+    )
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Password reset successful"}), 200
 
 
 @app.route('/files/<int:file_id>')
