@@ -39,11 +39,11 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5501"}})
 
 bcrypt = Bcrypt(app)
-DATABASE_HOST = "dpg-cp8i6g4f7o1s739jrv90-a"
+DATABASE_HOST = "dpg-cosjgr021fec73cheb50-a"
 DATABASE_PORT = 5432
-DATABASE_NAME = "clientcentraldb"
+DATABASE_NAME = "db_clientcentral_pmg"
 DATABASE_USER = "famage"
-DATABASE_PASSWORD = "InhMmVWj0KjGc54jgbEtxMXTanHEHwm8"
+DATABASE_PASSWORD = "NSu61doJ3iwfR6FikdxeZpYgqoARqK2v"
 
 # DATABASE_HOST = "localhost"
 # DATABASE_PORT = 5432
@@ -295,9 +295,7 @@ def register():
     if email_count > 0:
         return jsonify({"error": "Email already exists"}), 409
     salt = generate_salt()
-
     hashed_password = hash_password(password, salt)
-    
     files_table_name = f"UDB_x2fb_64_{uuid.uuid4().hex}"
     user_id = generate_random_id()
     conn = get_db_connection()
@@ -544,6 +542,8 @@ def list_files():
     cursor = conn.cursor()
     cursor.execute(f"SELECT id, filename, is_folder, parent_folder_id, content, icon_data, mimetype FROM {files_table_name}")
     files = cursor.fetchall()
+    # print("Files retrieved from the database:", files)
+
     folders = []
     files_list = []
     for file_id, filename, is_folder, parent_folder_id, content, icon_data, mimetype in files:
@@ -552,8 +552,6 @@ def list_files():
         if file_type:
             icon_data = get_file_icon(file_type)
             icon_data_base64 = base64.b64encode(icon_data).decode('utf-8') if icon_data else None
-        download_token = generate_download_token(file_id, request.user_files_table)
-        download_link = url_for('download_files', token=download_token, _external=True)  # Update this line
         if is_folder:
             folder_contents = list_folder_contents(file_id)
             folders.append({
@@ -561,8 +559,7 @@ def list_files():
                 "filename": filename,
                 "is_folder": True,
                 "icon_data": icon_data_base64,
-                "contents": [{"id": file[0], "filename": file[1]} for file in folder_contents],
-                "download_link": download_link
+                "contents": [{"id": file[0], "filename": file[1]} for file in folder_contents]
             })
         else:
             if file_type and (file_type.startswith('image/') or file_type.startswith('video/')):
@@ -577,10 +574,10 @@ def list_files():
                 "is_folder": False,
                 "icon_data": icon_data_base64,
                 "content": content_base64,
-                "content_type": content_type,
-                "download_link": download_link
+                "content_type": content_type
             })
     conn.close()
+
     return jsonify({"folders": folders, "files": files_list})
 
 @app.route('/files/<file_id>/content')
@@ -730,62 +727,6 @@ def download_file(file_id):
     response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
-def generate_download_token(file_id, user_id, expiration_time_minutes=30):
-    expiration_time = datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=expiration_time_minutes)
-    payload = {
-        'file_id': file_id,
-        'user_id': user_id,
-        'exp': expiration_time
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')
-
-def decode_download_token(token):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        return payload
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
-
-@app.route('/generate_download_link/<int:file_id>', methods=['POST'])
-@login_required
-def generate_download_link(file_id):
-    user_id = request.user_files_table
-    token = generate_download_token(file_id, user_id)
-    download_link = url_for('download_file', token=token, _external=True)
-    return jsonify({"download_link": download_link}), 200
-
-@app.route('/download_files')
-def download_files():
-    token = request.args.get('token')
-    if not token:
-        return jsonify({"error": "Missing token"}), 400
-
-    payload = decode_download_token(token)
-    if not payload:
-        return jsonify({"error": "Invalid or expired token"}), 401
-
-    file_id = payload['file_id']
-    user_id = payload['user_id']
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT filename, content FROM {user_id} WHERE id = %s", (file_id,))
-    file_data = cursor.fetchone()
-    conn.close()
-
-    if file_data:
-        filename, content = file_data
-        return send_file(
-            io.BytesIO(content),
-            mimetype='application/octet-stream',
-            as_attachment=True,
-            download_name=filename
-        )
-    return jsonify({"error": "File not found"}), 404
-
-
 @app.route('/rename', methods=['POST'])
 @login_required
 def rename_file():
@@ -834,4 +775,4 @@ def validate_user():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0')
