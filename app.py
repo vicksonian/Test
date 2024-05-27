@@ -39,18 +39,18 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5501"}})
 
 bcrypt = Bcrypt(app)
-DATABASE_HOST="dpg-cp9t08cf7o1s73a6fna0-a"
-DATABASE_PORT="5432"
-DATABASE_NAME="clientcentraldb_qwl8"
-DATABASE_USER="famage"
-DATABASE_PASSWORD="AhiaHSJysp9f3mFQbTXJ1vzgJhctvMMe"
+def read_secret_file(filename):
+    with open(filename, 'r') as file:
+        return dict(line.strip().split('=') for line in file)
 
+db_credentials = read_secret_file('db_credentials.txt')
 
-# DATABASE_HOST = "localhost"
-# DATABASE_PORT = 5432
-# DATABASE_NAME = "db_clientcentral_pmg"
-# DATABASE_USER = "postgres"
-# DATABASE_PASSWORD = ".7447"
+DATABASE_HOST = db_credentials.get("DATABASE_HOST")
+DATABASE_PORT = db_credentials.get("DATABASE_PORT")
+DATABASE_NAME = db_credentials.get("DATABASE_NAME")
+DATABASE_USER = db_credentials.get("DATABASE_USER")
+DATABASE_PASSWORD = db_credentials.get("DATABASE_PASSWORD")
+
 
 def get_db_connection():
     return psycopg2.connect(
