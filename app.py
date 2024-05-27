@@ -39,11 +39,12 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5501"}})
 
 bcrypt = Bcrypt(app)
-DATABASE_HOST = "dpg-cp8i6g4f7o1s739jrv90-a"
-DATABASE_PORT = 5432
-DATABASE_NAME = "clientcentraldb"
-DATABASE_USER = "famage"
-DATABASE_PASSWORD = "InhMmVWj0KjGc54jgbEtxMXTanHEHwm8"
+DATABASE_HOST="dpg-cp8i6g4f7o1s739jrv90-a"
+DATABASE_PORT="5432"
+DATABASE_NAME="clientcentraldb"
+DATABASE_USER="famage"
+DATABASE_PASSWORD="InhMmVWj0KjGc54jgbEtxMXTanHEHwm8"
+
 
 # DATABASE_HOST = "localhost"
 # DATABASE_PORT = 5432
