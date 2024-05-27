@@ -38,19 +38,20 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 CORS(app, resources={r"/*": {"origins": "*"}})
 CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5501"}})
 
-bcrypt = Bcrypt(app)
-def read_secret_file(filename):
-    with open(filename, 'r') as file:
-        return dict(line.strip().split('=') for line in file)
+app.config['CORS_HEADERS'] = 'Content-Type'
+app.config['CORS_HEADERS'] = 'Access-Control-Allow-Origin'
+app.config['CORS_HEADERS'] = 'Access-Control-Allow-Methods'
+app.config['CORS_HEADERS'] = 'Access-Control-Allow-Headers'
+app.config['CORS_HEADERS'] = 'Access-Control-Allow-Credentials'
+app.config['CORS_HEADERS'] = 'Access-Control-Max-Age'
+app.config['CORS_HEADERS'] = 'Access-Control-Expose-Headers'
 
-db_credentials = read_secret_file('db_credentials.txt')
 
-DATABASE_HOST = db_credentials.get("DATABASE_HOST")
-DATABASE_PORT = db_credentials.get("DATABASE_PORT")
-DATABASE_NAME = db_credentials.get("DATABASE_NAME")
-DATABASE_USER = db_credentials.get("DATABASE_USER")
-DATABASE_PASSWORD = db_credentials.get("DATABASE_PASSWORD")
-
+DATABASE_HOST = os.environ.get("DATABASE_HOST")
+DATABASE_PORT = os.environ.get("DATABASE_PORT")
+DATABASE_NAME = os.environ.get("DATABASE_NAME")
+DATABASE_USER = os.environ.get("DATABASE_USER")
+DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD")
 
 def get_db_connection():
     return psycopg2.connect(
